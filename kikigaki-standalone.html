@@ -288,9 +288,52 @@
   }
 
   // ---- セグメント描画 ----
+  // Android版Chromeは認識セッションの再起動時に同じ確定結果を
+  // (しばしば累積させながら)再送してくるため、
+  // 1) 短時間の確定はデバウンスしてまとめ、2) 直前と同一/前方一致なら差し替える
+  var pending = null, pendingTimer = 0;
+  var lastCommit = { id: 0, text: "", time: 0 };
+
   function finalize(text){
     hideInterim();
     if (!text) return;
+    if (pending) {
+      if (text.indexOf(pending) === 0 || pending.indexOf(text) === 0) {
+        // 同一発話の累積再送: 長い方を採用
+        if (text.length > pending.length) pending = text;
+      } else {
+        commit(pending);
+        pending = text;
+      }
+    } else {
+      pending = text;
+    }
+    clearTimeout(pendingTimer);
+    pendingTimer = setTimeout(function(){
+      if (pending) { commit(pending); pending = null; }
+    }, 900);
+  }
+
+  function commit(text){
+    var now = Date.now();
+    var recent = now - lastCommit.time < 6000;
+    if (recent && lastCommit.text) {
+      if (text === lastCommit.text || lastCommit.text.indexOf(text) === 0) {
+        lastCommit.time = now; // 完全な重複 or 短い再送は無視
+        return;
+      }
+      if (text.indexOf(lastCommit.text) === 0) {
+        // 直前セグメントの累積再送: 新規追加せず本文を差し替える
+        var prev = document.getElementById("seg-" + lastCommit.id);
+        if (prev) prev.querySelector(".text").textContent = text;
+        for (var i = 0; i < queue.length; i++) {
+          if (queue[i].id === lastCommit.id) queue[i].text = text;
+        }
+        lastCommit.text = text;
+        lastCommit.time = now;
+        return;
+      }
+    }
     $("hint").style.display = "none";
     var id = ++segId;
     var needs = apiKey && text.replace(/\s/g,"").length >= 4;
@@ -309,6 +352,7 @@
     $("transcript").appendChild(seg);
     seg.scrollIntoView({behavior:"smooth", block:"end"});
     if (needs) { queue.push({id:id, text:text}); pump(); }
+    lastCommit = { id: id, text: text, time: now };
   }
 
   function showInterim(t){
@@ -367,6 +411,8 @@
   function hardStop(){
     listening = false;
     try { rec && rec.stop(); } catch(e){}
+    clearTimeout(pendingTimer);
+    if (pending) { commit(pending); pending = null; }
     $("status").textContent = "○ STANDBY";
     $("status").className = "";
     $("micBtn").className = "";
@@ -403,6 +449,8 @@
   $("clearBtn").addEventListener("click", function(){
     $("transcript").innerHTML = "";
     glossary = []; known = {}; queue = []; segId = 0;
+    clearTimeout(pendingTimer); pending = null;
+    lastCommit = { id: 0, text: "", time: 0 };
     updateGlossary();
     $("glossaryList").innerHTML = '<p style="font-size:12px;color:var(--dim);">まだ解説した用語はありません。</p>';
     $("hint").style.display = "block";
