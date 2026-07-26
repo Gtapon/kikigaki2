@@ -24,9 +24,11 @@
   #status{font-size:11px; letter-spacing:.15em; color:var(--dim); padding-bottom:2px;}
   #status.rec{color:var(--amber);}
   #meterTrack{height:6px; width:100%; overflow:hidden; background:#121712;}
-  #meterBar{height:100%; width:100%;
-    background:linear-gradient(90deg,var(--green),var(--amber));
-    transform:scaleX(0); transform-origin:left; transition:transform 80ms linear;}
+  #meterBar{height:100%; width:35%;
+    background:linear-gradient(90deg,transparent,var(--green),var(--amber),transparent);
+    transform:translateX(-150%);}
+  #meterBar.scan{animation:kscan 1.4s linear infinite;}
+  @keyframes kscan{from{transform:translateX(-150%)}to{transform:translateX(350%)}}
   .wrap{max-width:720px; margin:0 auto; padding-bottom:150px;}
   /* 設定 */
   #settings{padding:10px 16px; border-bottom:1px solid var(--line);}
@@ -155,7 +157,6 @@
   var rec = null, listening = false, lang = "ja-JP";
   var segId = 0, queue = [], busy = false, known = {};
   var glossary = [];
-  var meter = null, raf = 0;
   var apiKey = "";
 
   var $ = function(id){ return document.getElementById(id); };
@@ -186,37 +187,11 @@
     $("micBtn").disabled = true;
   }
 
-  // ---- 音声レベルメーター ----
-  function startMeter(){
-    if (meter || !navigator.mediaDevices) return;
-    navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-      var Ctx = window.AudioContext || window.webkitAudioContext;
-      var ctx = new Ctx();
-      var analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      ctx.createMediaStreamSource(stream).connect(analyser);
-      meter = {stream:stream, ctx:ctx, analyser:analyser};
-      var data = new Uint8Array(analyser.frequencyBinCount);
-      (function loop(){
-        if (!meter) return;
-        meter.analyser.getByteFrequencyData(data);
-        var sum = 0;
-        for (var i=0;i<data.length;i++) sum += data[i];
-        var v = Math.min(1, sum/data.length/140);
-        $("meterBar").style.transform = "scaleX(" + v.toFixed(3) + ")";
-        raf = requestAnimationFrame(loop);
-      })();
-    }).catch(function(){});
-  }
-  function stopMeter(){
-    cancelAnimationFrame(raf);
-    if (meter) {
-      try { meter.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
-      try { meter.ctx.close(); } catch(e){}
-      meter = null;
-    }
-    $("meterBar").style.transform = "scaleX(0)";
-  }
+  // ---- 動作インジケーター ----
+  // 注意: getUserMediaでレベルメーターを作るとAndroidでは音声認識と
+  // マイクを取り合って認識が無音になるため、マイク非依存の表示にする
+  function startMeter(){ $("meterBar").classList.add("scan"); }
+  function stopMeter(){ $("meterBar").classList.remove("scan"); }
 
   // ---- AI解析 ----
   function analyze(text){
