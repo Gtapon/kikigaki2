@@ -57,9 +57,7 @@
     background:#121a12; border:1px solid var(--green-dim);}
   .term .t{font-size:12px; font-weight:bold; color:var(--green);}
   .term .e{font-size:12px; margin-top:4px; line-height:1.7; color:#a8c3a0;}
-  #interim{display:none; padding:12px 16px; gap:12px;}
-  #interim .mark{font-size:10px; color:var(--dim); padding-top:4px;}
-  #interimText{color:#8fa889; line-height:1.7; word-break:break-word;}
+  .seg.draft .text{color:#8fa889;}
   .cursor{color:var(--amber);}
   /* 用語集 */
   #glossaryPanel{display:none; position:fixed; left:0; right:0; bottom:84px; z-index:20;
@@ -122,11 +120,6 @@
   </div>
 
   <div id="transcript"></div>
-
-  <div id="interim" style="display:none; flex-direction:row;">
-    <span class="mark">&gt;&gt;</span>
-    <p id="interimText"></p>
-  </div>
 </div>
 
 <div id="glossaryPanel">
@@ -295,8 +288,8 @@
   var lastCommit = { id: 0, text: "", time: 0 };
 
   function finalize(text){
-    hideInterim();
-    if (!text) return;
+    interimNow = "";
+    if (!text) { renderDraft(); return; }
     if (pending) {
       if (text.indexOf(pending) === 0 || pending.indexOf(text) === 0) {
         // 同一発話の累積再送: 長い方を採用
@@ -308,9 +301,10 @@
     } else {
       pending = text;
     }
+    renderDraft(); // 確定処理を待たずに即表示
     clearTimeout(pendingTimer);
     pendingTimer = setTimeout(function(){
-      if (pending) { commit(pending); pending = null; }
+      if (pending) { commit(pending); pending = null; renderDraft(); }
     }, 900);
   }
 
@@ -349,23 +343,36 @@
       st.textContent = "▸ 解析中…";
       seg.querySelector(".content").appendChild(st);
     }
-    $("transcript").appendChild(seg);
+    var draft = document.getElementById("draftSeg");
+    if (draft) $("transcript").insertBefore(seg, draft);
+    else $("transcript").appendChild(seg);
     seg.scrollIntoView({behavior:"smooth", block:"end"});
     if (needs) { queue.push({id:id, text:text}); pump(); }
     lastCommit = { id: id, text: text, time: now };
   }
 
-  function showInterim(t){
-    $("interim").style.display = "flex";
-    $("interimText").innerHTML = "";
-    $("interimText").appendChild(document.createTextNode(t));
+  // ---- ドラフト行: 未確定の発話をリアルタイム表示 ----
+  var interimNow = "";
+  function renderDraft(){
+    var text = (pending || "") + (interimNow ? (pending ? " " : "") + interimNow : "");
+    var d = document.getElementById("draftSeg");
+    if (!text) { if (d) d.remove(); return; }
+    $("hint").style.display = "none";
+    if (!d) {
+      d = document.createElement("div");
+      d.className = "seg draft";
+      d.id = "draftSeg";
+      d.innerHTML = '<span class="num">&gt;&gt;</span><div class="content"><p class="text"></p></div>';
+    }
+    $("transcript").appendChild(d); // 常に末尾へ
+    var p = d.querySelector(".text");
+    p.textContent = text;
     var c = document.createElement("span");
     c.className = "cursor blink";
     c.textContent = "▊";
-    $("interimText").appendChild(c);
-    $("interim").scrollIntoView({behavior:"smooth", block:"end"});
+    p.appendChild(c);
+    d.scrollIntoView({behavior:"smooth", block:"end"});
   }
-  function hideInterim(){ $("interim").style.display = "none"; }
 
   // ---- 音声認識 ----
   function start(){
@@ -382,7 +389,7 @@
         if (r.isFinal) finalize(r[0].transcript.trim());
         else it += r[0].transcript;
       }
-      if (it) showInterim(it);
+      if (it) { interimNow = it; renderDraft(); }
     };
     rec.onerror = function(ev){
       if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
@@ -417,7 +424,8 @@
     $("status").className = "";
     $("micBtn").className = "";
     $("micBtn").textContent = "🎙";
-    hideInterim();
+    interimNow = "";
+    renderDraft();
     stopMeter();
   }
 
@@ -454,7 +462,8 @@
     updateGlossary();
     $("glossaryList").innerHTML = '<p style="font-size:12px;color:var(--dim);">まだ解説した用語はありません。</p>';
     $("hint").style.display = "block";
-    hideInterim();
+    interimNow = "";
+    renderDraft();
   });
 })();
 </script>
