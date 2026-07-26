@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>KIKIGAKI-01 // LIVE TRANSCRIBER</title>
+<style>
+  :root{
+    --bg:#0a0d0a; --panel:#10140f; --line:#1c241a; --dim:#5a6b54;
+    --body:#c9dcc2; --bright:#dcead6; --green:#6ef58c; --green-dim:#24402a;
+    --amber:#f5a623; --amber-dim:#f0c987;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:var(--bg); color:var(--body);
+    font-family:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace; font-size:14px;}
+  @keyframes kblink{0%,49%{opacity:1}50%,100%{opacity:0}}
+  .blink{animation:kblink 1s step-end infinite;}
+  header{position:sticky; top:0; z-index:20; background:rgba(10,13,10,.96);
+    border-bottom:1px solid var(--line); backdrop-filter:blur(6px);}
+  .hwrap{max-width:720px; margin:0 auto; padding:12px 16px 8px;
+    display:flex; align-items:flex-end; justify-content:space-between;}
+  .title{font-size:16px; font-weight:bold; letter-spacing:.2em; color:var(--bright);}
+  .subtitle{font-size:10px; letter-spacing:.15em; color:var(--dim);}
+  #status{font-size:11px; letter-spacing:.15em; color:var(--dim); padding-bottom:2px;}
+  #status.rec{color:var(--amber);}
+  #meterTrack{height:6px; width:100%; overflow:hidden; background:#121712;}
+  #meterBar{height:100%; width:100%;
+    background:linear-gradient(90deg,var(--green),var(--amber));
+    transform:scaleX(0); transform-origin:left; transition:transform 80ms linear;}
+  .wrap{max-width:720px; margin:0 auto; padding-bottom:150px;}
+  /* 設定 */
+  #settings{padding:10px 16px; border-bottom:1px solid var(--line);}
+  #settings .row{display:flex; gap:8px;}
+  #apiKey{flex:1; min-width:0; background:#0e120d; border:1px solid var(--line);
+    color:var(--body); padding:8px 10px; border-radius:4px; font-family:inherit; font-size:12px;}
+  #apiKey:focus{outline:none; border-color:var(--green-dim);}
+  #saveKey{background:transparent; border:1px solid var(--green-dim); color:var(--green);
+    padding:8px 12px; border-radius:4px; font-family:inherit; font-size:12px; cursor:pointer;}
+  #keyState{font-size:10px; margin-top:6px; color:var(--dim);}
+  /* エラー */
+  #err{display:none; padding:8px 16px; font-size:12px; color:var(--amber);}
+  /* 案内 */
+  #hint{padding:40px 16px; font-size:12px; line-height:2; color:var(--dim);}
+  #hint .lead{color:var(--body);}
+  /* セグメント */
+  .seg{padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px;}
+  .seg .num{font-size:10px; color:var(--dim); padding-top:4px; flex-shrink:0;}
+  .seg .content{flex:1; min-width:0;}
+  .seg .text{color:var(--bright); line-height:1.7; word-break:break-word;}
+  .seg .state{font-size:11px; margin-top:4px; color:var(--dim);}
+  .seg .state.error{color:var(--amber);}
+  .seg .trans{margin-top:8px; padding-left:12px; border-left:2px solid var(--amber);
+    color:var(--amber-dim); font-size:13px; line-height:1.7; word-break:break-word;}
+  .term{margin-top:8px; border-radius:4px; padding:8px 12px;
+    background:#121a12; border:1px solid var(--green-dim);}
+  .term .t{font-size:12px; font-weight:bold; color:var(--green);}
+  .term .e{font-size:12px; margin-top:4px; line-height:1.7; color:#a8c3a0;}
+  #interim{display:none; padding:12px 16px; gap:12px;}
+  #interim .mark{font-size:10px; color:var(--dim); padding-top:4px;}
+  #interimText{color:#8fa889; line-height:1.7; word-break:break-word;}
+  .cursor{color:var(--amber);}
+  /* 用語集 */
+  #glossaryPanel{display:none; position:fixed; left:0; right:0; bottom:84px; z-index:20;
+    max-height:45vh; overflow-y:auto; background:#0e120d; border-top:1px solid var(--green-dim);}
+  #glossaryPanel .inner{max-width:720px; margin:0 auto; padding:12px 16px;}
+  #glossaryPanel h2{font-size:12px; letter-spacing:.15em; color:var(--green);
+    font-weight:normal; margin-bottom:8px;}
+  .gitem{padding:8px 0; border-bottom:1px solid var(--line);}
+  .gitem:last-child{border-bottom:none;}
+  /* 操作バー */
+  footer{position:fixed; bottom:0; left:0; right:0; z-index:30;
+    background:rgba(10,13,10,.96); border-top:1px solid var(--line);
+    backdrop-filter:blur(6px); padding-bottom:env(safe-area-inset-bottom);}
+  .fwrap{max-width:720px; margin:0 auto; padding:12px 16px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;}
+  .langGroup{display:flex; border:1px solid var(--line); border-radius:4px; overflow:hidden;}
+  .langGroup button{background:transparent; border:none; color:var(--dim);
+    padding:10px 14px; font-family:inherit; font-size:12px; letter-spacing:.15em; cursor:pointer;}
+  .langGroup button.on{background:var(--green-dim); color:var(--green);}
+  #micBtn{width:64px; height:64px; border-radius:50%; cursor:pointer;
+    background:#121a12; border:2px solid var(--green); color:var(--green);
+    font-size:24px; display:flex; align-items:center; justify-content:center;}
+  #micBtn.rec{background:#1f150a; border-color:var(--amber); color:var(--amber);}
+  .side{display:flex; gap:8px;}
+  .side button{background:transparent; border:1px solid var(--line); color:var(--dim);
+    padding:10px 12px; border-radius:4px; font-family:inherit; font-size:12px; cursor:pointer;}
+  .side button.on{border-color:var(--green-dim); color:var(--green); background:#121a12;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hwrap">
+    <div>
+      <div class="title">KIKIGAKI-01</div>
+      <div class="subtitle">LIVE TRANSCRIBER // 用語解説・翻訳つき(スタンドアロン版)</div>
+    </div>
+    <div id="status">○ STANDBY</div>
+  </div>
+  <div id="meterTrack"><div id="meterBar"></div></div>
+</header>
+
+<div class="wrap">
+  <div id="settings">
+    <div class="row">
+      <input id="apiKey" type="password" placeholder="Anthropic APIキー (sk-ant-...)" autocomplete="off">
+      <button id="saveKey">保存</button>
+    </div>
+    <div id="keyState">未設定: 文字起こしのみ動作します(解説・翻訳にはAPIキーが必要)</div>
+  </div>
+
+  <div id="err">⚠ <span id="errText"></span></div>
+
+  <div id="hint">
+    <p class="lead">下のマイクボタンを押すと文字起こしを開始します。</p>
+    <p>▸ 難しい用語は自動で抽出し、下に解説カードを表示</p>
+    <p>▸ 英語の発話は日本語訳を表示(英語を話すときは EN モード推奨)</p>
+    <p>▸ 外部マイクは、端末側で選択中の入力デバイスが使われます</p>
+    <p>▸ このファイルは https でホスティングした環境で開いてください</p>
+  </div>
+
+  <div id="transcript"></div>
+
+  <div id="interim" style="display:none; flex-direction:row;">
+    <span class="mark">&gt;&gt;</span>
+    <p id="interimText"></p>
+  </div>
+</div>
+
+<div id="glossaryPanel">
+  <div class="inner">
+    <h2>◈ 用語集 (<span id="gcount2">0</span>)</h2>
+    <div id="glossaryList"><p style="font-size:12px;color:var(--dim);">まだ解説した用語はありません。</p></div>
+  </div>
+</div>
+
+<footer>
+  <div class="fwrap">
+    <div class="langGroup">
+      <button id="langJA" class="on">JA</button>
+      <button id="langEN">EN</button>
+    </div>
+    <button id="micBtn" aria-label="開始">🎙</button>
+    <div class="side">
+      <button id="glossaryBtn">📖 <span id="gcount">0</span></button>
+      <button id="clearBtn" aria-label="クリア">🗑</button>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = null, listening = false, lang = "ja-JP";
+  var segId = 0, queue = [], busy = false, known = {};
+  var glossary = [];
+  var meter = null, raf = 0;
+  var apiKey = "";
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  // ---- APIキー(localStorageが使えない環境でも動くようにガード) ----
+  try { apiKey = localStorage.getItem("kikigaki_api_key") || ""; } catch(e){}
+  if (apiKey) { $("apiKey").value = apiKey; keyStateUpdate(); }
+
+  $("saveKey").addEventListener("click", function(){
+    apiKey = $("apiKey").value.trim();
+    try { localStorage.setItem("kikigaki_api_key", apiKey); } catch(e){}
+    keyStateUpdate();
+  });
+
+  function keyStateUpdate(){
+    $("keyState").textContent = apiKey
+      ? "設定済み: 用語解説・翻訳が有効です(キーはこの端末のブラウザにのみ保存)"
+      : "未設定: 文字起こしのみ動作します(解説・翻訳にはAPIキーが必要)";
+    $("keyState").style.color = apiKey ? "var(--green)" : "var(--dim)";
+  }
+
+  // ---- エラー表示 ----
+  function showErr(msg){ $("errText").textContent = msg; $("err").style.display = "block"; }
+  function hideErr(){ $("err").style.display = "none"; }
+
+  if (!SR) {
+    showErr("このブラウザは音声認識(Web Speech API)に対応していません。Chrome / Safari / Edge で開いてください。");
+    $("micBtn").disabled = true;
+  }
+
+  // ---- 音声レベルメーター ----
+  function startMeter(){
+    if (meter || !navigator.mediaDevices) return;
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      var ctx = new Ctx();
+      var analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      meter = {stream:stream, ctx:ctx, analyser:analyser};
+      var data = new Uint8Array(analyser.frequencyBinCount);
+      (function loop(){
+        if (!meter) return;
+        meter.analyser.getByteFrequencyData(data);
+        var sum = 0;
+        for (var i=0;i<data.length;i++) sum += data[i];
+        var v = Math.min(1, sum/data.length/140);
+        $("meterBar").style.transform = "scaleX(" + v.toFixed(3) + ")";
+        raf = requestAnimationFrame(loop);
+      })();
+    }).catch(function(){});
+  }
+  function stopMeter(){
+    cancelAnimationFrame(raf);
+    if (meter) {
+      try { meter.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+      try { meter.ctx.close(); } catch(e){}
+      meter = null;
+    }
+    $("meterBar").style.transform = "scaleX(0)";
+  }
+
+  // ---- AI解析 ----
+  function analyze(text){
+    var knownList = Object.keys(known).slice(-60).join("、");
+    var prompt =
+      "あなたはリアルタイム文字起こしの補助AIです。次の発話テキストを分析し、JSONオブジェクトのみを返してください。前置き・説明・コードブロック記法は一切禁止です。\n\n" +
+      "発話テキスト:\n" + text + "\n\n" +
+      "タスク:\n" +
+      "1. translation: 発話に英語の文やフレーズが含まれる場合のみ、その部分の自然な日本語訳を入れる。日本語のみの発話なら null。\n" +
+      "2. terms: 一般の人に馴染みの薄い専門用語・難解な言葉・略語を抽出し、それぞれ1〜2文の平易な日本語で解説する。日常的な言葉は含めない。最大3件。該当がなければ空配列。\n" +
+      (knownList ? "次の語はすでに解説済みなので除外する: " + knownList + "\n" : "") +
+      "\n出力形式: {\"translation\": string または null, \"terms\": [{\"term\": string, \"explanation\": string}]}";
+
+    return fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{role:"user", content: prompt}]
+      })
+    }).then(function(res){
+      if (!res.ok) throw new Error("API " + res.status);
+      return res.json();
+    }).then(function(data){
+      var raw = (data.content || []).map(function(c){ return c.text || ""; }).join("");
+      var clean = raw.replace(/```json|```/g, "").trim();
+      var s = clean.indexOf("{"), e = clean.lastIndexOf("}");
+      return JSON.parse(clean.slice(s, e+1));
+    });
+  }
+
+  function pump(){
+    if (busy) return;
+    busy = true;
+    (function next(){
+      var seg = queue.shift();
+      if (!seg) { busy = false; return; }
+      analyze(seg.text).then(function(result){
+        var el = document.getElementById("seg-" + seg.id);
+        if (!el) return next();
+        var st = el.querySelector(".state");
+        if (st) st.remove();
+        if (result.translation) {
+          var tr = document.createElement("p");
+          tr.className = "trans";
+          tr.textContent = "訳 " + result.translation;
+          el.querySelector(".content").appendChild(tr);
+        }
+        (result.terms || []).forEach(function(t){
+          if (!t || !t.term || known[t.term]) return;
+          known[t.term] = true;
+          glossary.unshift(t);
+          var card = document.createElement("div");
+          card.className = "term";
+          card.innerHTML = '<div class="t"></div><div class="e"></div>';
+          card.querySelector(".t").textContent = "◈ " + t.term;
+          card.querySelector(".e").textContent = t.explanation;
+          el.querySelector(".content").appendChild(card);
+        });
+        updateGlossary();
+        next();
+      }).catch(function(){
+        var el = document.getElementById("seg-" + seg.id);
+        if (el) {
+          var st = el.querySelector(".state");
+          if (st) { st.textContent = "▸ 解析に失敗しました(APIキーを確認)"; st.className = "state error"; }
+        }
+        next();
+      });
+    })();
+  }
+
+  function updateGlossary(){
+    $("gcount").textContent = glossary.length;
+    $("gcount2").textContent = glossary.length;
+    var list = $("glossaryList");
+    if (!glossary.length) return;
+    list.innerHTML = "";
+    glossary.forEach(function(t){
+      var d = document.createElement("div");
+      d.className = "gitem";
+      d.innerHTML = '<div class="t" style="font-size:12px;font-weight:bold;color:var(--green);"></div>' +
+                    '<div class="e" style="font-size:12px;margin-top:2px;line-height:1.7;color:#a8c3a0;"></div>';
+      d.querySelector(".t").textContent = t.term;
+      d.querySelector(".e").textContent = t.explanation;
+      list.appendChild(d);
+    });
+  }
+
+  // ---- セグメント描画 ----
+  function finalize(text){
+    hideInterim();
+    if (!text) return;
+    $("hint").style.display = "none";
+    var id = ++segId;
+    var needs = apiKey && text.replace(/\s/g,"").length >= 4;
+    var seg = document.createElement("div");
+    seg.className = "seg";
+    seg.id = "seg-" + id;
+    seg.innerHTML = '<span class="num"></span><div class="content"><p class="text"></p></div>';
+    seg.querySelector(".num").textContent = String(id).padStart(3,"0");
+    seg.querySelector(".text").textContent = text;
+    if (needs) {
+      var st = document.createElement("p");
+      st.className = "state";
+      st.textContent = "▸ 解析中…";
+      seg.querySelector(".content").appendChild(st);
+    }
+    $("transcript").appendChild(seg);
+    seg.scrollIntoView({behavior:"smooth", block:"end"});
+    if (needs) { queue.push({id:id, text:text}); pump(); }
+  }
+
+  function showInterim(t){
+    $("interim").style.display = "flex";
+    $("interimText").innerHTML = "";
+    $("interimText").appendChild(document.createTextNode(t));
+    var c = document.createElement("span");
+    c.className = "cursor blink";
+    c.textContent = "▊";
+    $("interimText").appendChild(c);
+    $("interim").scrollIntoView({behavior:"smooth", block:"end"});
+  }
+  function hideInterim(){ $("interim").style.display = "none"; }
+
+  // ---- 音声認識 ----
+  function start(){
+    if (!SR) return;
+    hideErr();
+    rec = new SR();
+    rec.lang = lang;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = function(ev){
+      var it = "";
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        var r = ev.results[i];
+        if (r.isFinal) finalize(r[0].transcript.trim());
+        else it += r[0].transcript;
+      }
+      if (it) showInterim(it);
+    };
+    rec.onerror = function(ev){
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+        showErr("マイクの使用が許可されていません。アドレスバーの鍵アイコン → 権限 → マイクを許可してください。");
+        hardStop();
+      } else if (ev.error === "network") {
+        showErr("音声認識サービスに接続できません。通信環境を確認してください。");
+      }
+    };
+    rec.onend = function(){
+      if (listening) setTimeout(function(){ try { rec.start(); } catch(e){} }, 250);
+    };
+    try {
+      rec.start();
+      listening = true;
+      $("status").textContent = "● REC";
+      $("status").className = "rec blink";
+      $("micBtn").className = "rec";
+      $("micBtn").textContent = "■";
+      startMeter();
+    } catch(e) {
+      showErr("開始できませんでした。ページを再読み込みして試してください。");
+    }
+  }
+
+  function hardStop(){
+    listening = false;
+    try { rec && rec.stop(); } catch(e){}
+    $("status").textContent = "○ STANDBY";
+    $("status").className = "";
+    $("micBtn").className = "";
+    $("micBtn").textContent = "🎙";
+    hideInterim();
+    stopMeter();
+  }
+
+  $("micBtn").addEventListener("click", function(){
+    if (listening) hardStop(); else start();
+  });
+
+  function switchLang(code){
+    if (code === lang) return;
+    lang = code;
+    $("langJA").className = code === "ja-JP" ? "on" : "";
+    $("langEN").className = code === "en-US" ? "on" : "";
+    if (listening) {
+      listening = false;
+      try { rec && rec.stop(); } catch(e){}
+      setTimeout(start, 300);
+    }
+  }
+  $("langJA").addEventListener("click", function(){ switchLang("ja-JP"); });
+  $("langEN").addEventListener("click", function(){ switchLang("en-US"); });
+
+  $("glossaryBtn").addEventListener("click", function(){
+    var p = $("glossaryPanel");
+    var open = p.style.display === "block";
+    p.style.display = open ? "none" : "block";
+    $("glossaryBtn").className = open ? "" : "on";
+  });
+
+  $("clearBtn").addEventListener("click", function(){
+    $("transcript").innerHTML = "";
+    glossary = []; known = {}; queue = []; segId = 0;
+    updateGlossary();
+    $("glossaryList").innerHTML = '<p style="font-size:12px;color:var(--dim);">まだ解説した用語はありません。</p>';
+    $("hint").style.display = "block";
+    hideInterim();
+  });
+})();
+</script>
+</body>
+</html>
