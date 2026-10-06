@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stream — つぶやくように書くナレッジ</title>
+<style>
+:root{
+  --bg:#f6f5f1;--panel:#ffffff;--ink:#1e2a27;--sub:#6b7673;--faint:#9aa4a1;--line:#e7e5de;--soft:#f1f0eb;
+  --accent:#17705b;--accent-2:#0f5343;--accent-soft:#e5f2ee;--accent-ink:#ffffff;
+  --warn:#a15c07;--warn-soft:#fdf1de;--danger:#b42318;--mark:#fde68a;
+  --shadow:0 1px 3px rgba(0,0,0,.06);--shadow-lg:0 20px 60px rgba(0,0,0,.18);
+  --font:"Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141716;--panel:#1c201f;--ink:#e6ece9;--sub:#a3ada9;--faint:#76807c;--line:#2d3331;--soft:#232827;
+  --accent:#4cc3a0;--accent-2:#7ed8bd;--accent-soft:#183329;--accent-ink:#0b1714;
+  --warn:#fbbf24;--warn-soft:#2e2510;--danger:#f87171;--mark:#5c4a12;
+  --shadow:0 1px 3px rgba(0,0,0,.4);--shadow-lg:0 20px 60px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.6;overflow:hidden}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{display:grid;grid-template-columns:250px minmax(0,1fr) 330px;height:100vh}
+@media (max-width:1100px){.app{grid-template-columns:230px minmax(0,1fr)}.right{display:none}}
+
+/* ---------- left ---------- */
+.left{padding:20px 14px;display:flex;flex-direction:column;gap:4px;overflow:auto}
+.brand{font-weight:900;font-size:20px;padding:0 8px 12px;display:flex;align-items:center;gap:8px}
+.brand i{width:20px;height:20px;border-radius:50%;background:var(--accent);display:inline-block}
+.askbtn{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--sub);text-align:left}
+.askbtn:hover{border-color:var(--accent);color:var(--accent)}
+.askbtn kbd{margin-left:auto;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:0 5px;font-family:inherit}
+.nav{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;border:none;background:none;text-align:left;width:100%}
+.nav:hover{background:var(--soft)}
+.nav.on{background:var(--panel);font-weight:700;box-shadow:var(--shadow)}
+.nav .n{margin-left:auto;font-size:12px;color:var(--accent);font-weight:700}
+.nav .n.warn{background:#f2a541;color:#fff;border-radius:10px;padding:0 8px}
+.sec{padding:16px 12px 6px;font-size:12px;color:var(--sub);font-weight:700;display:flex;align-items:center}
+.sec button{margin-left:auto;border:none;background:none;color:var(--accent);font-size:12px;font-weight:700;padding:0}
+.cat{border:none;background:none;width:100%;text-align:left;padding:5px 12px;font-weight:700;display:flex;gap:6px;align-items:center}
+.cat .c{margin-left:auto;font-size:11.5px;color:var(--faint);font-weight:400}
+.cat::before{content:"▸";color:var(--faint);font-size:11px}
+.cat.open::before{content:"▾"}
+.pg{border:none;background:none;width:100%;text-align:left;padding:4px 12px 4px 28px;color:var(--sub);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pg:hover{color:var(--accent)}
+.pg.cur{color:var(--accent);font-weight:700}
+.leftfoot{margin-top:auto;padding:14px 8px 0;font-size:12px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
+.leftfoot .row{display:flex;gap:6px}
+.leftfoot button{flex:1;border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:6px 0;font-size:12px}
+.backup-warn{color:var(--warn)}
+
+/* ---------- center ---------- */
+.center{background:var(--panel);border-radius:26px 0 0 26px;box-shadow:-6px 0 30px rgba(0,0,0,.04);display:flex;flex-direction:column;min-width:0;min-height:0}
+@media (max-width:1100px){.center{border-radius:26px 0 0 26px}}
+.chead{display:flex;align-items:center;gap:10px;padding:18px 40px 8px;min-height:56px}
+.chead h1{margin:0;font-size:18px}
+.chead .sub{color:var(--sub);font-size:12.5px}
+.chead .sp{flex:1}
+.save{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px}
+.save i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block}
+.scroll{flex:1;overflow:auto;padding:6px 40px 20px;min-height:0}
+.day{display:flex;align-items:center;gap:12px;color:var(--sub);font-size:12.5px;margin:18px 0 8px}
+.day::before,.day::after{content:"";flex:1;height:1px;background:var(--line)}
+.entry{display:flex;gap:14px;padding:8px 10px;border-radius:12px;position:relative}
+.entry:hover{background:var(--soft)}
+.entry .tm{width:42px;flex:none;font-size:12px;color:var(--faint);padding-top:3px}
+.entry .bd{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.entry .tx{font-size:15.5px;line-height:1.8;white-space:pre-wrap;word-break:break-word}
+.entry .acts{position:absolute;right:10px;top:6px;display:none;gap:4px}
+.entry:hover .acts{display:flex}
+.acts button{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:2px 8px;font-size:12px;color:var(--sub)}
+.entry.flash{animation:flash 1.6s}
+@keyframes flash{0%{background:var(--accent-soft)}100%{background:transparent}}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{font-size:12px;border-radius:20px;padding:3px 10px;border:1px solid var(--line);background:var(--panel);color:var(--sub)}
+button.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.done{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:700}
+.chip.inbox{background:var(--warn-soft);color:var(--warn);border-color:transparent;font-weight:700}
+.chip.ghost{border-style:dashed}
+.chips select{font-size:12px;border:1px solid var(--line);border-radius:20px;padding:3px 8px;background:var(--panel);color:var(--sub)}
+.link{border:none;background:none;padding:0 2px;color:var(--accent);font-weight:700;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--accent) 40%,transparent);text-underline-offset:3px}
+.link.missing{color:var(--warn);text-decoration-style:dashed}
+.tag{color:var(--accent-2);background:var(--accent-soft);border-radius:6px;padding:0 5px;font-size:.92em}
+.stamp{color:var(--faint);font-size:.82em}
+.cb{border:none;background:none;padding:0 2px;font-size:1.05em;color:var(--accent)}
+.done-line{color:var(--faint);text-decoration:line-through}
+.welcome{margin:40px auto;max-width:560px;background:var(--soft);border-radius:20px;padding:26px 28px;line-height:1.9}
+.welcome h2{margin:0 0 8px;font-size:18px}
+.welcome .row{display:flex;gap:8px;margin-top:12px}
+
+/* composer */
+.composer{padding:0 40px 24px}
+.cbox{border:2px solid var(--accent);border-radius:22px;padding:14px 18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px color-mix(in srgb,var(--accent) 14%,transparent);background:var(--panel);position:relative}
+.cbox textarea{border:none;outline:none;resize:none;background:transparent;font-size:16px;line-height:1.8;min-height:30px;max-height:220px;overflow:auto;width:100%}
+.sugg{display:flex;align-items:center;gap:8px;background:var(--accent-soft);border-radius:14px;padding:9px 12px;font-size:13.5px;flex-wrap:wrap}
+.sugg .q{flex:1;min-width:200px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:6px 12px;font-size:13px}
+.btn:hover{border-color:var(--sub)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn.primary:hover{background:var(--accent-2);border-color:var(--accent-2)}
+.btn.danger{color:var(--danger)}
+.alt{font-size:12.5px;color:var(--sub);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.hints{display:flex;gap:14px;font-size:12px;color:var(--faint);flex-wrap:wrap}
+.ac{position:absolute;left:16px;bottom:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;min-width:280px;max-height:260px;overflow:auto;z-index:5}
+.ac button{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 10px;border-radius:8px}
+.ac button.on,.ac button:hover{background:var(--accent-soft);color:var(--accent)}
+.ac .cat2{color:var(--faint);font-size:11.5px;margin-left:6px}
+
+/* page view */
+.page{max-width:820px}
+.ptitle{font-size:28px;font-weight:900;border:none;outline:none;background:transparent;width:100%;padding:0}
+.pmeta{display:flex;gap:10px;align-items:center;color:var(--sub);font-size:12.5px;margin:4px 0 18px;flex-wrap:wrap}
+.pmeta input{border:1px solid var(--line);border-radius:8px;padding:3px 8px;background:var(--bg);font-size:12.5px;width:170px}
+.pbody{font-size:15.5px;line-height:1.95}
+.pbody h3{font-size:17px;margin:18px 0 4px}
+.pbody p{margin:0;padding:2px 8px;border-radius:8px;white-space:pre-wrap;word-break:break-word}
+.pbody p.hit{background:var(--accent-soft);outline:2px solid var(--accent)}
+.pbody .empty{color:var(--faint)}
+.peditor{width:100%;min-height:360px;border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:var(--bg);font-size:15px;line-height:1.9;resize:vertical;outline:none}
+.peditor:focus{border-color:var(--accent)}
+.prel{margin-top:30px;display:flex;flex-direction:column;gap:8px}
+.prel h4{margin:0;font-size:12.5px;color:var(--sub)}
+.mention{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.75;background:var(--panel)}
+.mention .d{color:var(--faint);font-size:11.5px}
+
+/* sitemap view */
+.smap{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;padding-bottom:20px}
+.scol{background:var(--soft);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.scol h3{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:8px}
+.scol h3 span{margin-left:auto;font-size:12px;color:var(--sub);font-weight:400}
+.scard{border:none;text-align:left;background:var(--panel);border-radius:10px;padding:8px 10px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.scard:hover{outline:2px solid var(--accent)}
+.scard b{font-size:13.5px}
+.scard span{font-size:11.5px;color:var(--faint)}
+
+/* right */
+.right{padding:22px 20px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.rh{font-size:12px;color:var(--sub);font-weight:700}
+.rcard{background:var(--panel);border-radius:18px;padding:16px 18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
+.rcard .t{font-weight:900;font-size:17px}
+.rcard .c{font-size:12px;color:var(--sub)}
+.rcard .tail{font-size:13px;line-height:1.8;color:var(--sub);white-space:pre-wrap;word-break:break-word}
+.rcard .add{font-size:13px;line-height:1.8;background:var(--accent-soft);border-radius:10px;padding:8px 10px;color:var(--accent-2);white-space:pre-wrap;word-break:break-word}
+.rnote{font-size:12.5px;color:var(--sub);line-height:1.8}
+
+/* dialogs */
+dialog{border:none;border-radius:20px;padding:0;background:var(--panel);color:var(--ink);box-shadow:var(--shadow-lg);width:min(640px,calc(100% - 24px))}
+dialog::backdrop{background:rgba(0,0,0,.42)}
+.dlg{padding:22px 24px;display:flex;flex-direction:column;gap:14px;max-height:84vh;overflow:auto}
+.dlg h2{margin:0;font-size:18px}
+.dlg label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--sub);font-weight:700}
+.dlg input[type=text],.dlg textarea{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--bg);font-size:14px;font-weight:400;color:var(--ink);outline:none}
+.dlg input[type=text]:focus,.dlg textarea:focus{border-color:var(--accent)}
+.dlg textarea{min-height:170px;font-size:13px;line-height:1.7}
+.dfoot{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.dfoot .l{margin-right:auto}
+
+/* ask */
+#askDlg{width:min(860px,calc(100% - 24px))}
+.askin{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.askin input{flex:1;border:none;outline:none;background:transparent;font-size:20px;min-width:0}
+.askres{padding:16px 20px 20px;max-height:64vh;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.ans{border:2px solid var(--accent);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.ans .big{font-size:19px;line-height:1.75;font-weight:700;white-space:pre-wrap}
+.conf{font-size:12px;font-weight:700;border-radius:20px;padding:2px 10px}
+.conf.h{background:var(--accent-soft);color:var(--accent)}.conf.m{background:var(--warn-soft);color:var(--warn)}.conf.l{background:#fdecea;color:var(--danger)}
+mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
+.why{border-top:1px dashed var(--line);padding-top:8px;font-size:12px;color:var(--sub);display:flex;flex-direction:column;gap:2px}
+.cand{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 14px}
+.cand:hover{border-color:var(--accent)}
+.cand .s{font-size:13px;color:var(--sub)}
+.askfoot{display:flex;gap:16px;font-size:12px;color:var(--faint);padding:10px 20px;border-top:1px solid var(--line)}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:var(--ink);color:var(--panel);border-radius:14px;padding:10px 12px 10px 18px;display:flex;gap:12px;align-items:center;transition:.2s;z-index:50;box-shadow:var(--shadow-lg);font-size:13.5px}
+#toast.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+#toast button{border:none;background:var(--accent);color:var(--accent-ink);border-radius:9px;padding:5px 12px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= left ================= -->
+  <aside class="left">
+    <div class="brand"><i></i>Stream</div>
+    <button class="askbtn" id="askOpen" title="ナレッジに聞く">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      聞く・探す<kbd>Ctrl K</kbd>
+    </button>
+    <button class="nav" data-view="stream">ストリーム<span class="n" id="nToday"></span></button>
+    <button class="nav" data-view="inbox">整理待ち<span class="n warn" id="nInbox"></span></button>
+    <button class="nav" data-view="sitemap">サイトマップ<span class="n" id="nPages"></span></button>
+    <div class="sec">ページ<button id="newPageBtn" title="新しいページ">＋ 新規</button></div>
+    <div id="tree"></div>
+    <div class="leftfoot">
+      <div id="backupInfo"></div>
+      <div class="row"><button id="exportBtn">書き出し</button><button id="importBtn">読み込み</button></div>
+      <div class="row"><button id="settingsBtn">言い換え辞書・設定</button></div>
+      <input type="file" id="file" accept="application/json,.json" hidden>
+    </div>
+  </aside>
+
+  <!-- ================= center ================= -->
+  <main class="center">
+    <div class="chead" id="chead"></div>
+    <div class="scroll" id="scroll"></div>
+    <div class="composer" id="composerWrap">
+      <div class="cbox">
+        <div class="ac" id="ac" hidden></div>
+        <textarea id="input" rows="1" placeholder="思いついたこと、決まったこと、メモをそのまま書く（Enterで投稿・Shift+Enterで改行）"></textarea>
+        <div id="sugg"></div>
+        <div class="hints"><span>ページ名は打つだけで自動リンク</span><span>[[ でページを選ぶ</span><span># でタグ</span><span>□ でToDo</span><span>Ctrl+Enter であとで整理</span></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= right ================= -->
+  <aside class="right" id="right"></aside>
+</div>
+
+<!-- page create -->
+<dialog id="pageDlg"><form method="dialog" class="dlg" id="pageForm">
+  <h2>新しいページ</h2>
+  <label>ページ名<input type="text" id="npTitle" required autocomplete="off"></label>
+  <label>分類<input type="text" id="npCat" list="catList" placeholder="例：業務マニュアル" autocomplete="off"></label>
+  <datalist id="catList"></datalist>
+  <div class="rnote" id="npNote"></div>
+  <div class="dfoot"><button type="button" class="btn" id="npCancel">キャンセル</button><button type="submit" class="btn primary">作成</button></div>
+</form></dialog>
+
+<!-- settings -->
+<dialog id="setDlg"><div class="dlg">
+  <h2>言い換え辞書・設定</h2>
+  <label>言い換え辞書（1行に1グループ、「=」でつなぐ）<textarea id="synText" spellcheck="false"></textarea></label>
+  <div class="rnote">「聞く」と「追記先のおすすめ」の両方で使われます。よく使う言い換えを足すほど、見つかりやすくなります。</div>
+  <div class="dfoot"><button type="button" class="btn danger l" id="wipeBtn">すべてのデータを消す</button><button type="button" class="btn" id="sampleBtn">サンプルを追加</button><button type="button" class="btn primary" id="synSave">保存して閉じる</button></div>
+</div></dialog>
+
+<!-- import -->
+<dialog id="impDlg"><div class="dlg">
+  <h2>JSONを読み込む</h2>
+  <div id="impInfo" class="rnote"></div>
+  <div class="dfoot"><button type="button" class="btn" id="impCancel">キャンセル</button><button type="button" class="btn danger" id="impReplace">いまのデータと置き換える</button><button type="button" class="btn primary" id="impMerge">追加・更新する（おすすめ）</button></div>
+</div></dialog>
+
+<!-- ask -->
+<dialog id="askDlg">
+  <form class="askin" id="askForm" autocomplete="off">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+    <input id="askQ" placeholder="ふつうの言葉で質問（例：交通費っていくらまで？）">
+    <button class="btn primary" type="submit">聞く</button>
+  </form>
+  <div class="askres" id="askRes"></div>
+  <div class="askfoot"><span>Enter 聞く</span><span>Esc 閉じる</span><span>書いてあることだけを探します（新しい文章は作りません）</span></div>
+</dialog>
+
+<div id="toast"><span id="toastText"></span><button id="toastBtn" hidden>元に戻す</button></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Stream — オフライン専用ナレッジ。外部通信・外部ライブラリなし。
+   データはこのブラウザの IndexedDB に保存、JSON で書き出し/読み込み。
+   ===================================================================== */
+
+/* ---------------- 小物 ---------------- */
+const $=s=>document.querySelector(s);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const WD=["日","月","火","水","木","金","土"];
+const pad=n=>String(n).padStart(2,"0");
+const dkey=t=>{const d=new Date(t);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());};
+const hm=t=>{const d=new Date(t);return d.getHours()+":"+pad(d.getMinutes());};
+const md=t=>{const d=new Date(t);return (d.getMonth()+1)+"/"+d.getDate();};
+function dayLabel(t){
+  const d=new Date(t), today=new Date(); const y=new Date(); y.setDate(today.getDate()-1);
+  const base=`${d.getMonth()+1}月${d.getDate()}日（${WD[d.getDay()]}）`;
+  if(dkey(t)===dkey(today)) return "今日　"+base;
+  if(dkey(t)===dkey(y)) return "きのう　"+base;
+  return (d.getFullYear()!==today.getFullYear()? d.getFullYear()+"年":"")+base;
+}
+function ago(t){ if(!t) return ""; const s=(Date.now()-t)/1000; if(s<60) return "たった今"; if(s<3600) return Math.floor(s/60)+"分前"; if(s<86400) return Math.floor(s/3600)+"時間前"; return Math.floor(s/86400)+"日前"; }
+
+/* ---------------- 保存（IndexedDB） ---------------- */
+const DB={db:null};
+function dbOpen(){
+  return new Promise(res=>{
+    try{
+      const r=indexedDB.open("stream-kb",1);
+      r.onupgradeneeded=()=>{const d=r.result;["pages","entries"].forEach(n=>{ if(!d.objectStoreNames.contains(n)) d.createObjectStore(n,{keyPath:"id"}); }); if(!d.objectStoreNames.contains("meta")) d.createObjectStore("meta",{keyPath:"k"});};
+      r.onsuccess=()=>{DB.db=r.result;res(true);};
+      r.onerror=()=>res(false); r.onblocked=()=>res(false);
+    }catch(e){res(false);}
+  });
+}
+function dbAll(store){ return new Promise(res=>{ if(!DB.db) return res([]); const r=DB.db.transaction(store).objectStore(store).getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>res([]); }); }
+function dbPut(store,obj){ return new Promise(res=>{ if(!DB.db) return res(); const t=DB.db.transaction(store,"readwrite"); t.objectStore(store).put(obj); t.oncomplete=()=>{markSaved();res();}; t.onerror=()=>{markSaved(true);res();}; }); }
+function dbDel(store,id){ return new Promise(res=>{ if(!DB.db) return res(); const t=DB.db.transaction(store,"readwrite"); t.objectStore(store).delete(id); t.oncomplete=()=>{markSaved();res();}; t.onerror=()=>res(); }); }
+function dbClear(){ return new Promise(res=>{ if(!DB.db) return res(); const t=DB.db.transaction(["pages","entries","meta"],"readwrite"); ["pages","entries","meta"].forEach(n=>t.objectStore(n).clear()); t.oncomplete=()=>res(); t.onerror=()=>res(); }); }
+const setMeta=(k,v)=>{ S.meta[k]=v; return dbPut("meta",{k,v}); };
+let lastSaved=0, saveErr=false;
+function markSaved(err){ lastSaved=Date.now(); saveErr=!!err; const el=$("#saveState"); if(el) el.innerHTML=saveState(); }
+function saveState(){ if(!DB.db) return `<span style="color:var(--danger)">保存できません（このブラウザでは保存が無効です）</span>`; if(saveErr) return `<span style="color:var(--danger)">保存に失敗しました</span>`; return `<i></i>このPCに自動保存`; }
+
+/* ---------------- 状態 ---------------- */
+const S={pages:[],entries:[],meta:{},view:"stream",pageId:null,hitLine:-1,openCats:new Set(),editing:false,sugg:null,suggIdx:0};
+const pageById=id=>S.pages.find(p=>p.id===id);
+const pageByTitle=t=>S.pages.find(p=>p.title===t);
+const cats=()=>{ const m=new Map(); S.pages.forEach(p=>{ const c=p.category||"未分類"; if(!m.has(c)) m.set(c,[]); m.get(c).push(p); }); return [...m].sort((a,b)=>a[0]==="未分類"?1:b[0]==="未分類"?-1:a[0].localeCompare(b[0],"ja")); };
+
+/* =====================================================================
+   検索エンジン（「聞く」と「おすすめ」に共通）
+   文を2文字ずつに区切って、質問との重なりをBM25で点数化。
+   ===================================================================== */
+const SEP=/[\s\u3000、。，．,.!！?？「」『』（）()【】\[\]{}<>＜＞・:：;；"'`~〜\/／|｜=＝+＋*＊#＃@＠&＆%％^＾\-‐―─…〔〕□☑☐]/;
+const HIRA2=/^[\u3041-\u309f]{2}$/, KANJI=/[\u4e00-\u9fff々]/;
+function charsOf(str){ const out=[]; let i=0; for(const c of str){ const n=c.normalize("NFKC").toLowerCase(); if(SEP.test(n)||n.trim()==="") out.push(null); else for(const x of n) out.push({c:x,i}); i+=c.length; } return out; }
+function gramsOf(chars){ const g=[]; for(let j=0;j<chars.length;j++){ const a=chars[j]; if(!a) continue; const b=chars[j+1]; if(b) g.push({g:a.c+b.c,i0:a.i,i1:b.i}); if(KANJI.test(a.c)) g.push({g:a.c,i0:a.i,i1:a.i,uni:true}); } return g; }
+const gw=g=>g.length===1?0.35:(HIRA2.test(g)?0.25:1);
+const QTYPES=[
+  {label:"金額",q:/いくら|何円|なん円|金額|上限|費用|値段|料金|何万/,a:/[0-9,]+\s*(円|万円)|円/},
+  {label:"日時",q:/いつ|何日|何曜|何時|締め|期限|締切|しめきり|何月|日程|スケジュール/,a:/[0-9]+\s*(月|日|時|営業日|日前)|[月火水木金土日]曜|毎(日|週|月|年)|最終|翌|前日|当日|午前|午後|中旬|上旬|下旬/},
+  {label:"人・窓口",q:/誰|だれ|どなた|担当|窓口|連絡先|聞けば|相談/,a:/さん|担当|内線|部|窓口/},
+  {label:"やり方",q:/どうやって|どうすれば|どうしたら|方法|手順|やり方|仕方|しかた|ときは|には$/,a:/^[0-9]+[\.、]|から|する。|して|すませる|申請|進める|試す/},
+  {label:"場所",q:/どこ|場所|何階|置き場/,a:/[0-9]+階|棚|倉庫|フォルダ|受付|横|前|室/},
+  {label:"回数・数",q:/何回|何日|何枚|何人|何個|何%|週何|月何/,a:/[0-9]+\s*(回|日|枚|人|個|%|週|時間)/},
+];
+const FILLER=/(って|とは|ですか|でしょうか|ますか|教えて(ください)?|知りたい|について|はどう|なの|かな|っけ|ください|お願い|何|なに|なん|どう|いくら|いつ|誰|だれ|どこ)/g;
+let SYN=[];
+function readSyn(){ SYN=(S.meta.syn??DEFAULT_SYN).split(/\r?\n/).map(l=>l.split(/[=＝]/).map(w=>w.trim().normalize("NFKC").toLowerCase()).filter(Boolean)).filter(g=>g.length>1); }
+
+const IX={dirty:true,chunks:[],df:new Map(),avg:1,back:new Map()};
+function cleanLine(l){ return l.replace(/^[-*・]\s*/,""); }
+function buildIndex(){
+  const chunks=[],df=new Map(),back=new Map();
+  S.pages.forEach(p=>{ for(const m of (p.body||"").matchAll(/\[\[([^\]]+)\]\]/g)) back.set(m[1],(back.get(m[1])||0)+1); });
+  const addChunk=(src,line,ctxText,titleText,ord)=>{
+    const grams=gramsOf(charsOf(line)); if(!grams.length) return;
+    const spans=[...line.matchAll(/\[\[([^\]]+)\]\]/g)].map(m=>[m.index,m.index+m[0].length]);
+    const inLink=i=>spans.some(([a,b])=>i>=a&&i<b);
+    const tf=new Map(); grams.forEach(x=>tf.set(x.g,(tf.get(x.g)||0)+(inLink(x.i0)?0.4:1)));
+    const ctx=new Set(gramsOf(charsOf(ctxText)).map(x=>x.g));
+    const title=new Set(gramsOf(charsOf(titleText)).map(x=>x.g));
+    new Set([...tf.keys(),...ctx]).forEach(g=>df.set(g,(df.get(g)||0)+1));
+    chunks.push({...src,line,ord,tf,ctx,title,len:grams.length});
+  };
+  S.pages.forEach(p=>{
+    let heading="",ord=0;
+    addChunk({kind:"title",pid:p.id,li:-1},p.title,p.category||"",p.title,-1);
+    (p.body||"").split(/\r?\n/).forEach((raw,li)=>{
+      const l=raw.trim(); if(!l) return;
+      if(/^#{1,6}\s/.test(l)){ heading=l.replace(/^#+\s*/,""); return; }
+      addChunk({kind:"page",pid:p.id,li},cleanLine(l),p.title+" "+heading,p.title,ord++);
+    });
+  });
+  S.entries.filter(e=>!e.target).forEach(e=>{
+    e.text.split(/\r?\n/).forEach((raw,li)=>{ const l=raw.trim(); if(l) addChunk({kind:"entry",eid:e.id,li},cleanLine(l),"","",li); });
+  });
+  IX.chunks=chunks; IX.df=df; IX.back=back; IX.avg=chunks.reduce((a,c)=>a+c.len,0)/(chunks.length||1); IX.dirty=false;
+}
+const idf=g=>{ const n=IX.chunks.length, d=IX.df.get(g)||0; return Math.log(1+(n-d+0.5)/(d+0.5)); };
+function parseQ(raw){
+  const nq=raw.normalize("NFKC").toLowerCase();
+  const types=QTYPES.filter(t=>t.q.test(nq));
+  const core=nq.replace(FILLER," ");
+  const weights=new Map(); const add=(t,w)=>gramsOf(charsOf(t)).forEach(x=>{ const ww=w*gw(x.g); if((weights.get(x.g)||0)<ww) weights.set(x.g,ww); });
+  add(core,1);
+  const expansions=[];
+  for(const g of SYN){ const hit=g.find(w=>nq.includes(w)); if(hit) g.filter(w=>w!==hit&&!nq.includes(w)).forEach(w=>{ add(w,0.7); expansions.push(hit+"→"+w); }); }
+  const tokens=[]; let rest=core;
+  SYN.flat().filter(w=>w.length>1).sort((a,b)=>b.length-a.length).forEach(w=>{ if(rest.includes(w)){ tokens.push(w); rest=rest.split(w).join(" "); } });
+  rest.split(/[\u3041-\u309f]+/).forEach(part=>{ let cur=""; for(const ch of part){ if(SEP.test(ch)||ch.trim()===""){ if(cur) tokens.push(cur); cur=""; } else cur+=ch; } if(cur) tokens.push(cur); });
+  const toks=tokens.filter(t=>t.length>1||KANJI.test(t)).map(t=>{
+    const alts=[t]; for(const g of SYN){ if(g.some(w=>w===t||t.includes(w)||(w.length>1&&t.length>1&&w.includes(t)))) g.forEach(w=>{ if(!alts.includes(w)) alts.push(w); }); }
+    return {t,alts:alts.map(a=>gramsOf(charsOf(a)).filter(x=>a.length===1?x.uni:!x.uni).map(x=>x.g)).filter(x=>x.length)};
+  });
+  return {types,weights,expansions,toks};
+}
+function search(raw,{kinds=null}={}){
+  if(IX.dirty) buildIndex();
+  readSyn();
+  const Q=parseQ(raw), k1=1.2,b=0.75, out=[];
+  for(const c of IX.chunks){
+    if(kinds && !kinds.includes(c.kind)) continue;
+    let s=0; const hit=new Set();
+    for(const [g,w] of Q.weights){
+      const tf=c.tf.get(g)||0, inCtx=c.ctx.has(g); if(!tf&&!inCtx) continue;
+      const id=idf(g);
+      if(tf){ s+=w*id*(tf*(k1+1))/(tf+k1*(1-b+b*c.len/IX.avg)); hit.add(g); }
+      if(inCtx) s+=w*id*0.35;
+    }
+    if(s<=0) continue;
+    const has=g=>c.tf.has(g)||c.ctx.has(g);
+    const tokScore=set=>{ let tot=0,h=0; for(const tk of Q.toks){ const w=tk.t.length; tot+=w; let best=0; for(const gs of tk.alts){ const f=gs.filter(set).length/gs.length; if(f>best) best=f; } if(best>=0.6) h+=w*best; } return tot?h/tot:0; };
+    const cov=tokScore(has), tcov=tokScore(g=>c.title.has(g));
+    s*=1+0.6*tcov; if(tcov>=0.8&&c.ord===0) s*=1.3; s*=0.5+cov;
+    const typeHit=Q.types.filter(t=>t.a.test(c.line.normalize("NFKC")));
+    if(typeHit.length) s*=1.45;
+    if(/〔[0-9]+\/[0-9]+〕\s*$/.test(c.line)) s*=1.2;   // あとから追記された文は少し優先（新しい情報のことが多い）
+    if(c.pid){ const p=pageById(c.pid); const bl=p?IX.back.get(p.title)||0:0; s*=1+Math.log1p(bl)*0.05; }
+    out.push({c,s,cov,hit,typeHit});
+  }
+  out.sort((a,b)=>b.s-a.s);
+  return {Q,res:out};
+}
+function highlight(line,hit){
+  const marks=new Set(); gramsOf(charsOf(line)).forEach(x=>{ if(hit.has(x.g)&&!x.uni) for(let k=x.i0;k<=x.i1;k++) marks.add(k); });
+  let o="",open=false; for(let i=0;i<line.length;i++){ const m=marks.has(i); if(m&&!open){o+="<mark>";open=true;} if(!m&&open){o+="</mark>";open=false;} o+=esc(line[i]); } if(open) o+="</mark>";
+  return o.replace(/\[\[|\]\]/g,"");
+}
+function matchedWords(line,hit){ const ch=charsOf(line); const w=[]; let cur=""; for(let j=0;j<ch.length;j++){ const a=ch[j],b=ch[j+1]; const ok=a&&((b&&hit.has(a.c+b.c))||(j>0&&ch[j-1]&&hit.has(ch[j-1].c+a.c))); if(ok) cur+=line.slice(a.i,a.i+1); else { if(cur.length>1) w.push(cur); cur=""; } } if(cur.length>1) w.push(cur); return [...new Set(w)].slice(0,6); }
+
+/* ---------------- 本文の表示（[[リンク]]・#タグ・□ToDo・〔日付〕） ---------------- */
+function inline(text){
+  let h=esc(text);
+  h=h.replace(/\[\[([^\]]+?)\]\]/g,(m,t)=>{ const raw=t.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'"); const p=pageByTitle(raw); return `<button class="link${p?"":" missing"}" data-goto="${t}" title="${p?"開く":"まだないページ（押すと作れます）"}">${t}</button>`; });
+  h=h.replace(/(^|[\s\u3000])#([^\s\u3000#、。,.!?！？]+)/g,'$1<span class="tag">#$2</span>');
+  h=h.replace(/〔([^〕]+)〕/g,'<span class="stamp">〔$1〕</span>');
+  return h;
+}
+function lineHTML(l,ctx){
+  const m=l.match(/^(\s*)(□|☐|☑|\[ \]|\[x\])\s*(.*)$/i);
+  if(m){ const done=/☑|\[x\]/i.test(m[2]); return `<button class="cb" data-toggle="${ctx}" aria-label="${done?"未完了に戻す":"完了にする"}">${done?"☑":"□"}</button><span class="${done?"done-line":""}">${inline(m[3])}</span>`; }
+  return inline(l);
+}
+
+/* ---------------- 自動リンク・追記先のおすすめ ---------------- */
+function autoLink(text){
+  const titles=S.pages.map(p=>p.title).filter(t=>t.length>=2).sort((a,b)=>b.length-a.length);
+  if(!titles.length) return text;
+  const re=new RegExp("("+titles.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")","g");
+  return text.split(/(\[\[[^\]]+\]\])/).map(part=> part.startsWith("[[")?part:part.replace(re,"[[$1]]")).join("");
+}
+function mentionedPages(text){
+  const set=new Map();
+  for(const m of text.matchAll(/\[\[([^\]]+)\]\]/g)){ const p=pageByTitle(m[1]); if(p) set.set(p.id,p); }
+  const plain=text.replace(/\[\[[^\]]+\]\]/g," ");
+  S.pages.filter(p=>p.title.length>=2&&plain.includes(p.title)).sort((a,b)=>b.title.length-a.title.length).forEach(p=>set.set(p.id,p));
+  return [...set.values()];
+}
+function suggestFor(text){
+  const t=text.trim(); if(t.length<2||!S.pages.length) return [];
+  const out=[]; const seen=new Set();
+  mentionedPages(t).forEach(p=>{ if(!seen.has(p.id)){ seen.add(p.id); out.push({p,why:"ページ名が入っています"}); } });
+  if(out.length<3){
+    const {res}=search(t,{kinds:["page","title"]});
+    for(const r of res){ if(out.length>=3) break; if(r.cov<0.4) continue; const p=pageById(r.c.pid); if(!p||seen.has(p.id)) continue; seen.add(p.id); out.push({p,why:"内容が近いページ"}); }
+  }
+  return out;
+}
+
+/* ---------------- ページへの追記 ---------------- */
+function stampLine(text,t){ const lines=text.split(/\r?\n/); lines[lines.length-1]+=` 〔${md(t)}〕`; return lines.join("\n"); }
+async function fileEntry(e,page,{toast=true}={}){
+  const add=stampLine(e.text.split("[["+page.title+"]]").join(page.title),e.createdAt);   // 追記先自身へのリンクは外す
+  page.body=(page.body||"").replace(/\s+$/,"")+(page.body&&page.body.trim()?"\n":"")+add;
+  page.updatedAt=Date.now();
+  e.target=page.id; e.appended=add; e.updatedAt=Date.now();
+  IX.dirty=true;
+  await dbPut("pages",page); await dbPut("entries",e);
+  if(toast) showToast(`「${page.title}」に追記しました`,async()=>{ await unfile(e); render(); });
+}
+async function unfile(e){
+  const p=pageById(e.target);
+  if(p&&e.appended){ const i=p.body.lastIndexOf(e.appended); if(i>=0){ p.body=(p.body.slice(0,i)+p.body.slice(i+e.appended.length)).replace(/\n{3,}/g,"\n\n").replace(/^\n+|\n+$/g,""); p.updatedAt=Date.now(); await dbPut("pages",p); } }
+  e.target=null; e.appended=null; e.updatedAt=Date.now(); IX.dirty=true; await dbPut("entries",e);
+}
+
+/* ---------------- 投稿 ---------------- */
+async function post(mode){ // mode: "auto" | "later" | {page} | "new"
+  const ta=$("#input"); let text=ta.value.replace(/\s+$/,""); if(!text.trim()) return;
+  text=autoLink(text);
+  const e={id:uid(),text,createdAt:Date.now(),updatedAt:Date.now(),target:null,appended:null};
+  S.entries.push(e); IX.dirty=true; await dbPut("entries",e);
+  ta.value=""; autoSize(); S.sugg=null; renderSugg();
+  if(mode==="new"){ openNewPage({fromEntry:e}); }
+  else if(mode&&mode.page){ await fileEntry(e,mode.page); }
+  else if(mode==="auto"){ const sg=suggestFor(text); if(sg.length) await fileEntry(e,sg[Math.min(S.suggIdx,sg.length-1)].p); else showToast("整理待ちに入れました"); }
+  else showToast("整理待ちに入れました");
+  S.suggIdx=0;
+  if(S.view!=="stream"&&S.view!=="inbox") S.view="stream";
+  render(); scrollBottom(); flashEntry(e.id);
+}
+
+/* ---------------- 描画 ---------------- */
+function render(){ renderLeft(); renderCenter(); renderRight(); }
+function renderLeft(){
+  document.querySelectorAll(".nav").forEach(b=>b.classList.toggle("on",b.dataset.view===S.view));
+  const today=S.entries.filter(e=>dkey(e.createdAt)===dkey(Date.now())).length;
+  $("#nToday").textContent=today?"今日 "+today:"";
+  const inbox=S.entries.filter(e=>!e.target).length;
+  $("#nInbox").textContent=inbox||""; $("#nInbox").style.display=inbox?"":"none";
+  $("#nPages").textContent=S.pages.length||"";
+  $("#tree").innerHTML=cats().map(([c,ps])=>{
+    const open=S.openCats.has(c)||(S.pageId&&ps.some(p=>p.id===S.pageId));
+    return `<button class="cat${open?" open":""}" data-cat="${esc(c)}">${esc(c)}<span class="c">${ps.length}</span></button>`+
+      (open?ps.slice().sort((a,b)=>a.title.localeCompare(b.title,"ja")).map(p=>`<button class="pg${p.id===S.pageId&&S.view==="page"?" cur":""}" data-page="${p.id}" title="${esc(p.title)}">${esc(p.title)}</button>`).join(""):"");
+  }).join("")||`<div class="rnote" style="padding:4px 12px">まだページがありません</div>`;
+  const le=S.meta.lastExport; const days=le?Math.floor((Date.now()-le)/86400000):null;
+  $("#backupInfo").innerHTML= le? `<span class="${days>=7?"backup-warn":""}">最後の書き出し：${days===0?"今日":days+"日前"}</span>` : (S.pages.length||S.entries.length? `<span class="backup-warn">まだ一度も書き出していません</span>`:"");
+}
+function renderCenter(){
+  const head=$("#chead"), sc=$("#scroll");
+  $("#composerWrap").style.display=(S.view==="stream"||S.view==="inbox")?"":"none";
+  if(S.view==="page") return renderPage(head,sc);
+  if(S.view==="sitemap") return renderSitemap(head,sc);
+  const inbox=S.view==="inbox";
+  head.innerHTML=`<h1>${inbox?"整理待ち":"ストリーム"}</h1><span class="sub">${inbox?"まだどのページにも入っていないメモ":"書いたものが時系列に流れます"}</span><span class="sp"></span><span class="save" id="saveState">${saveState()}</span>`;
+  const list=S.entries.filter(e=>!inbox||!e.target).sort((a,b)=>a.createdAt-b.createdAt);
+  if(!list.length){
+    sc.innerHTML= inbox? `<div class="welcome"><h2>整理待ちはありません</h2>すべてのメモがどこかのページに入っています。</div>` :
+      `<div class="welcome"><h2>Streamへようこそ</h2>下の入力欄に、思いついたことや決まったことを<b>そのまま</b>書いてください。<br>すでにあるページ名が入っていれば、そのページに自動で追記されます。<br>どこに入れるか迷うメモは「整理待ち」に入り、あとで振り分けられます。<div class="row"><button class="btn primary" data-act="newpage">最初のページを作る</button><button class="btn" data-act="sample">サンプルで試す</button></div></div>`;
+    return;
+  }
+  let html="",lastDay="";
+  for(const e of list){
+    const dk=dkey(e.createdAt); if(dk!==lastDay){ html+=`<div class="day">${dayLabel(e.createdAt)}</div>`; lastDay=dk; }
+    const tp=e.target?pageById(e.target):null;
+    const text=e.text.split(/\r?\n/).map((l,i)=>lineHTML(l,`e:${e.id}:${i}`)).join("\n");
+    let chips="";
+    if(tp){
+      const others=mentionedPages(e.text).filter(p=>p.id!==tp.id);
+      chips=`<div class="chips"><button class="chip done" data-page="${tp.id}">→ ${esc(tp.title)} に追記済み</button>${others.map(p=>`<button class="chip" data-page="${p.id}">${esc(p.title)} にも表示</button>`).join("")}</div>`;
+    }else{
+      const sg=suggestFor(e.text);
+      chips=`<div class="chips"><span class="chip inbox">整理待ち</span>${sg.map(s=>`<button class="chip" data-file="${e.id}" data-to="${s.p.id}" title="${esc(s.why)}">→ ${esc(s.p.title)}</button>`).join("")}
+        <select data-pick="${e.id}" aria-label="追記先を選ぶ"><option value="">ページを選ぶ…</option>${cats().map(([c,ps])=>`<optgroup label="${esc(c)}">${ps.map(p=>`<option value="${p.id}">${esc(p.title)}</option>`).join("")}</optgroup>`).join("")}</select>
+        <button class="chip ghost" data-newfrom="${e.id}">＋ 新しいページにする</button></div>`;
+    }
+    html+=`<div class="entry" id="en-${e.id}"><div class="tm">${hm(e.createdAt)}</div><div class="bd"><div class="tx">${text}</div>${chips}</div>
+      <div class="acts">${tp?`<button data-unfile="${e.id}">振り分けを取り消す</button>`:""}<button data-edit="${e.id}">編集</button><button data-delete="${e.id}">削除</button></div></div>`;
+  }
+  sc.innerHTML=html;
+}
+function renderPage(head,sc){
+  const p=pageById(S.pageId); if(!p){ S.view="stream"; return render(); }
+  head.innerHTML=`<button class="btn" data-act="back">← ストリーム</button><span class="sub">${esc(p.category||"未分類")}</span><span class="sp"></span><span class="save" id="saveState">${saveState()}</span>
+    ${S.editing?`<button class="btn primary" data-act="done">編集を終える</button>`:`<button class="btn" data-act="edit">編集</button>`}<button class="btn danger" data-act="delpage">削除</button>`;
+  const lines=(p.body||"").split(/\r?\n/);
+  const body= S.editing ? `<textarea class="peditor" id="peditor" spellcheck="false">${esc(p.body||"")}</textarea><div class="rnote" style="margin-top:6px">## で見出し　□ でToDo　[[ページ名]] でリンク。自動で保存されます。</div>` :
+    (p.body&&p.body.trim()? lines.map((raw,li)=>{ const l=raw.trim(); if(!l) return ""; if(/^#{1,6}\s/.test(l)) return `<h3>${inline(l.replace(/^#+\s*/,""))}</h3>`; return `<p class="${li===S.hitLine?"hit":""}" ${li===S.hitLine?'id="hitline"':""}>${lineHTML(l,`p:${p.id}:${li}`)}</p>`; }).join("") : `<p class="empty">まだ何も書かれていません。ストリームでこのページ名を書くか、「編集」から書き込めます。</p>`);
+  const mentions=S.entries.filter(e=>e.target!==p.id && e.text.includes("[["+p.title+"]]")).sort((a,b)=>b.createdAt-a.createdAt);
+  const backs=S.pages.filter(q=>q.id!==p.id && (q.body||"").includes("[["+p.title+"]]"));
+  sc.innerHTML=`<div class="page">
+    <input class="ptitle" id="ptitle" value="${esc(p.title)}" aria-label="ページ名">
+    <div class="pmeta"><span>分類</span><input id="pcat" list="catList" value="${esc(p.category||"")}" placeholder="未分類"><span>更新 ${ago(p.updatedAt)}</span><span>作成 ${new Date(p.createdAt).toLocaleDateString("ja-JP")}</span></div>
+    <div class="pbody">${body}</div>
+    ${backs.length?`<div class="prel"><h4>このページにリンクしているページ（${backs.length}）</h4><div class="chips">${backs.map(q=>`<button class="chip" data-page="${q.id}">${esc(q.title)}</button>`).join("")}</div></div>`:""}
+    ${mentions.length?`<div class="prel"><h4>このページに触れたメモ（${mentions.length}）</h4>${mentions.slice(0,30).map(e=>`<div class="mention"><div class="d">${dayLabel(e.createdAt)} ${hm(e.createdAt)}${e.target?` ・ ${esc(pageById(e.target)?.title||"")} に追記`:" ・ 整理待ち"}</div>${e.text.split(/\r?\n/).map(l=>inline(l)).join("<br>")}</div>`).join("")}</div>`:""}
+  </div>`;
+  const h=$("#hitline"); if(h) h.scrollIntoView({block:"center"}); else sc.scrollTop=0;
+  const ed=$("#peditor"); if(ed){ ed.focus(); ed.oninput=debounce(async()=>{ p.body=ed.value; p.updatedAt=Date.now(); IX.dirty=true; await dbPut("pages",p); renderLeft(); },400); }
+  $("#pcat").onchange=async e=>{ p.category=e.target.value.trim(); p.updatedAt=Date.now(); IX.dirty=true; await dbPut("pages",p); render(); };
+  $("#ptitle").onchange=e=>renamePage(p,e.target.value.trim());
+  $("#ptitle").onkeydown=e=>{ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); e.target.blur(); } };
+}
+function renderSitemap(head,sc){
+  head.innerHTML=`<h1>サイトマップ</h1><span class="sub">${cats().length}分類・${S.pages.length}ページ</span><span class="sp"></span><button class="btn primary" data-act="newpage">＋ 新しいページ</button>`;
+  if(!S.pages.length){ sc.innerHTML=`<div class="welcome"><h2>まだページがありません</h2>ストリームに書いたメモから「新しいページにする」で作るのがおすすめです。<div class="row"><button class="btn primary" data-act="newpage">ページを作る</button><button class="btn" data-act="sample">サンプルで試す</button></div></div>`; return; }
+  const linkCount=t=>S.pages.filter(q=>(q.body||"").includes("[["+t+"]]")).length;
+  sc.innerHTML=`<div class="smap">${cats().map(([c,ps])=>`<section class="scol"><h3>${esc(c)}<span>${ps.length}</span></h3>${ps.slice().sort((a,b)=>b.updatedAt-a.updatedAt).map(p=>{ const lc=linkCount(p.title); return `<button class="scard" data-page="${p.id}"><b>${esc(p.title)}</b><span>${ago(p.updatedAt)}更新${lc?` ・ リンク元 ${lc}`:""}</span></button>`; }).join("")}</section>`).join("")}</div>`;
+}
+function renderRight(){
+  const r=$("#right");
+  if(S.view==="page"){
+    const p=pageById(S.pageId); if(!p){ r.innerHTML=""; return; }
+    const heads=(p.body||"").split(/\r?\n/).map((l,i)=>[l.trim(),i]).filter(([l])=>/^#{1,6}\s/.test(l));
+    const outs=[...new Set([...(p.body||"").matchAll(/\[\[([^\]]+)\]\]/g)].map(m=>m[1]))];
+    r.innerHTML=`<div class="rh">このページ</div><div class="rcard">
+      ${heads.length?`<div class="c">見出し</div>${heads.map(([l])=>`<div>${esc(l.replace(/^#+\s*/,""))}</div>`).join("")}`:""}
+      <div class="c">リンク先（${outs.length}）</div><div class="chips">${outs.map(t=>{ const q=pageByTitle(t); return q?`<button class="chip" data-page="${q.id}">${esc(t)}</button>`:`<button class="chip ghost" data-goto="${esc(t)}">${esc(t)}（未作成）</button>`; }).join("")||'<span class="c">なし</span>'}</div></div>
+      <div class="rnote">ストリームで「${esc(p.title)}」と書くだけで、このページに追記されます。</div>`;
+    return;
+  }
+  if(S.view==="sitemap"){
+    const orphan=S.pages.filter(p=>!S.pages.some(q=>q.id!==p.id&&(q.body||"").includes("[["+p.title+"]]"))&&!S.entries.some(e=>e.text.includes("[["+p.title+"]]")));
+    const missing=[...new Set(S.pages.flatMap(p=>[...(p.body||"").matchAll(/\[\[([^\]]+)\]\]/g)].map(m=>m[1])))].filter(t=>!pageByTitle(t));
+    r.innerHTML=`<div class="rh">ナレッジの状態</div><div class="rcard"><div class="c">まだないページへのリンク（${missing.length}）</div><div class="chips">${missing.map(t=>`<button class="chip ghost" data-goto="${esc(t)}">${esc(t)}</button>`).join("")||'<span class="c">なし</span>'}</div>
+      <div class="c">どこからもリンクされていないページ（${orphan.length}）</div><div class="chips">${orphan.slice(0,20).map(p=>`<button class="chip" data-page="${p.id}">${esc(p.title)}</button>`).join("")||'<span class="c">なし</span>'}</div></div>
+      <div class="rh">答えを待っている質問</div><div class="rcard">${(S.meta.saved||[]).map((q,i)=>`<div style="display:flex;gap:6px;align-items:center"><span style="flex:1">${esc(q)}</span><button class="chip" data-unsave="${i}" aria-label="削除">✕</button></div>`).join("")||'<span class="c">なし</span>'}</div>`;
+    return;
+  }
+  // stream / inbox: suggestion preview
+  const sg=S.sugg&&S.sugg.list[S.suggIdx];
+  let html=`<div class="rh">追記先のプレビュー</div>`;
+  if(sg){
+    const p=sg.p; const tail=(p.body||"").split(/\r?\n/).filter(l=>l.trim()).slice(-4).join("\n");
+    html+=`<div class="rcard"><div class="c">${esc(p.category||"未分類")}</div><div class="t">${esc(p.title)}</div>${tail?`<div class="tail">${tail.split("\n").map(l=>inline(l)).join("\n")}</div>`:""}<div class="add">＋ ${inline(stampLine(autoLink($("#input").value.trim()),Date.now()))}</div></div>`;
+  } else html+=`<div class="rnote">書いている内容に合うページが見つかると、ここに追記後の姿が出ます。</div>`;
+  const recent=[]; S.entries.slice().sort((a,b)=>b.createdAt-a.createdAt).forEach(e=>{ if(e.target&&!recent.includes(e.target)&&recent.length<6) recent.push(e.target); });
+  if(recent.length) html+=`<div class="rh" style="margin-top:8px">最近書き込んだページ</div><div class="chips">${recent.map(id=>pageById(id)).filter(Boolean).map(p=>`<button class="chip" data-target="${p.id}" title="入力中のメモをこのページに入れる">${esc(p.title)}</button>`).join("")}</div>`;
+  const inbox=S.entries.filter(e=>!e.target).length;
+  if(inbox) html+=`<div class="rcard" style="margin-top:8px"><div><b>整理待ちが ${inbox} 件</b></div><div class="c">手が空いたときに、候補のボタンを押すだけで振り分けられます。</div><div><button class="btn" data-act="inbox">整理待ちを見る</button></div></div>`;
+  r.innerHTML=html;
+}
+function renderSugg(){
+  const el=$("#sugg"); const t=$("#input").value;
+  if(!S.sugg||!S.sugg.list.length){
+    el.innerHTML= t.trim().length>=2 ? `<div class="sugg"><span class="q">合うページが見つかりません。Enterで<b>整理待ち</b>に入ります。</span><button class="btn" data-act="postnew">新しいページにする</button></div>` : "";
+    renderRight(); return;
+  }
+  const i=Math.min(S.suggIdx,S.sugg.list.length-1), cur=S.sugg.list[i];
+  el.innerHTML=`<div class="sugg"><span class="q">「<b>${esc(cur.p.title)}</b>」に追記しますか？ <span style="color:var(--sub);font-size:12px">${esc(cur.why)}</span></span>
+    <button class="btn primary" data-act="postauto">追記する　Enter</button><button class="btn" data-act="postnew">新しいページにする</button><button class="btn" data-act="postlater">あとで</button></div>
+    ${S.sugg.list.length>1?`<div class="alt">ほかの候補（Tabで切りかえ）：${S.sugg.list.map((s,k)=>`<button class="chip${k===i?" done":""}" data-sidx="${k}">${esc(s.p.title)}</button>`).join("")}</div>`:""}`;
+  renderRight();
+}
+
+/* ---------------- ページ操作 ---------------- */
+function openPage(id,hitLine=-1){ S.view="page"; S.pageId=id; S.hitLine=hitLine; S.editing=false; render(); }
+let pendingNew=null;
+function openNewPage({title="",category="",fromEntry=null}={}){
+  pendingNew=fromEntry;
+  $("#npTitle").value=title|| (fromEntry? fromEntry.text.replace(/\[\[|\]\]/g,"").split(/\r?\n/)[0].replace(/[。．.、,].*$/,"").slice(0,30):"");
+  let cat=category;
+  if(!cat&&fromEntry){ const {res}=search(fromEntry.text,{kinds:["page"]}); const top=res.find(r=>r.cov>=0.3); if(top) cat=pageById(top.c.pid)?.category||""; }
+  $("#npCat").value=cat;
+  $("#npNote").textContent=fromEntry?"いまのメモがこのページの最初の内容になります。":"";
+  $("#catList").innerHTML=cats().map(([c])=>`<option value="${esc(c)}">`).join("");
+  $("#pageDlg").showModal(); setTimeout(()=>{$("#npTitle").focus();$("#npTitle").select();},30);
+}
+$("#pageForm").onsubmit=async ev=>{
+  ev.preventDefault();
+  const title=$("#npTitle").value.trim(); if(!title) return;
+  if(pageByTitle(title)){ alert("同じ名前のページがすでにあります。"); return; }
+  const p={id:uid(),title,category:$("#npCat").value.trim(),body:"",createdAt:Date.now(),updatedAt:Date.now()};
+  S.pages.push(p); IX.dirty=true; await dbPut("pages",p);
+  S.openCats.add(p.category||"未分類");
+  $("#pageDlg").close();
+  if(pendingNew){ const e=pendingNew; pendingNew=null; e.text=autoLink(e.text); await fileEntry(e,p,{toast:false}); showToast(`ページ「${title}」を作って追記しました`); render(); }
+  else openPage(p.id);
+  // 既存メモ内の同名テキストをリンク化
+  let changed=0; for(const e of S.entries){ const nt=autoLink(e.text); if(nt!==e.text){ e.text=nt; changed++; await dbPut("entries",e); } }
+  if(changed) render();
+};
+$("#npCancel").onclick=()=>{ $("#pageDlg").close(); if(pendingNew){ pendingNew=null; render(); } };
+async function renamePage(p,nt){
+  if(!nt||nt===p.title) { $("#ptitle").value=p.title; return; }
+  if(pageByTitle(nt)){ alert("同じ名前のページがすでにあります。"); $("#ptitle").value=p.title; return; }
+  const old=p.title; const from="[["+old+"]]", to="[["+nt+"]]";
+  p.title=nt; p.updatedAt=Date.now(); await dbPut("pages",p);
+  for(const q of S.pages) if(q.body&&q.body.includes(from)){ q.body=q.body.split(from).join(to); await dbPut("pages",q); }
+  for(const e of S.entries) if(e.text.includes(from)){ e.text=e.text.split(from).join(to); if(e.appended) e.appended=e.appended.split(from).join(to); await dbPut("entries",e); }
+  IX.dirty=true; showToast(`「${old}」→「${nt}」に変更し、リンクも書きかえました`); render();
+}
+async function deletePage(p){
+  const n=S.entries.filter(e=>e.target===p.id).length;
+  if(!confirm(`ページ「${p.title}」を削除しますか？${n?`\nこのページに振り分けたメモ ${n} 件は「整理待ち」に戻ります。`:""}`)) return;
+  for(const e of S.entries) if(e.target===p.id){ e.target=null; e.appended=null; await dbPut("entries",e); }
+  S.pages=S.pages.filter(x=>x.id!==p.id); await dbDel("pages",p.id); IX.dirty=true;
+  S.view="stream"; S.pageId=null; render();
+}
+async function toggleTodo(ctx){
+  const [kind,id,li]=ctx.split(":");
+  const sw=l=>/^\s*(☑|\[x\])/i.test(l)? l.replace(/^(\s*)(☑|\[x\])/i,"$1□") : l.replace(/^(\s*)(□|☐|\[ \])/,"$1☑");
+  if(kind==="p"){ const p=pageById(id); const ls=p.body.split(/\r?\n/); ls[+li]=sw(ls[+li]); p.body=ls.join("\n"); p.updatedAt=Date.now(); await dbPut("pages",p); }
+  else { const e=S.entries.find(x=>x.id===id); const ls=e.text.split(/\r?\n/); const before=ls[+li]; ls[+li]=sw(ls[+li]); e.text=ls.join("\n");
+    const p=e.target&&pageById(e.target);
+    if(p&&e.appended){ const na=e.appended.split(before).join(ls[+li]); if(p.body.includes(e.appended)){ p.body=p.body.split(e.appended).join(na); await dbPut("pages",p);} e.appended=na; }
+    await dbPut("entries",e); }
+  IX.dirty=true; render();
+}
+
+/* ---------------- 聞く ---------------- */
+function openAsk(){ $("#askDlg").showModal(); $("#askQ").select(); if(!$("#askQ").value) $("#askRes").innerHTML=askIntro(); }
+function askIntro(){ return `<div class="rnote">ページと整理待ちのメモの中から、答えになりそうな一文を探します。<br>例：「交通費っていくらまで？」「経費の締め日はいつ？」「〇〇の担当は誰？」</div>${(S.meta.saved||[]).length?`<div class="rnote"><b>答えを待っている質問：</b>${S.meta.saved.map(esc).join("、")}</div>`:""}`; }
+function srcLabel(c){ if(c.kind==="entry"){ const e=S.entries.find(x=>x.id===c.eid); return `整理待ちのメモ（${e?dayLabel(e.createdAt):""}）`; } const p=pageById(c.pid); return `${esc(p?.title||"")}（${esc(p?.category||"未分類")}）`; }
+function ask(q){
+  q=q.trim(); const box=$("#askRes"); if(!q){ box.innerHTML=askIntro(); return; }
+  const {Q,res}=search(q,{kinds:["page","entry"]});
+  let best=res[0];
+  // 同じページに「あとから追記された文」で十分近いものがあれば、新しい情報としてそちらを答えにする
+  if(best&&best.c.pid&&!/〔[0-9]+\/[0-9]+〕\s*$/.test(best.c.line)){
+    const newer=res.find(r=>r!==best&&r.c.pid===best.c.pid&&r.c.kind==="page"&&/〔[0-9]+\/[0-9]+〕\s*$/.test(r.c.line)&&r.cov>=0.5&&r.s>=best.s*0.55);
+    if(newer){ res.splice(res.indexOf(newer),1); res.unshift(newer); best=newer; best.newer=true; }
+  }
+  if(!best||best.cov<0.28){
+    box.innerHTML=`<div class="ans" style="border-color:var(--line)"><span class="conf l" style="align-self:flex-start">見つかりませんでした</span><div>「${esc(q)}」に答えられそうな文が、まだありません。</div>
+      <div class="chips"><button class="btn primary" data-saveq="${esc(q)}">この質問を保存しておく</button><button class="btn" data-qpost="${esc(q)}">ストリームに質問として書く</button></div></div>`;
+    return;
+  }
+  const cf=best.cov>=0.6?["高","h"]:best.cov>=0.4?["中","m"]:["低","l"];
+  const seen=new Set([best.c.pid||best.c.eid]); const others=[];
+  for(const r of res.slice(1)){ if(others.length>=4) break; const k=r.c.pid||r.c.eid; if(seen.has(k)||r.cov<0.25) continue; seen.add(k); others.push(r); }
+  const words=matchedWords(best.c.line,best.hit);
+  const same=best.c.pid? res.filter(r=>r!==best&&r.c.pid===best.c.pid&&r.c.kind==="page"&&r.cov>=0.5).slice(0,2):[];
+  box.innerHTML=`<div class="ans"><div class="chips"><span class="conf ${cf[1]}">答えはたぶんここ ・ 自信度 ${cf[0]}</span><button class="link" data-open="${best.c.kind}:${best.c.pid||best.c.eid}:${best.c.li}">${srcLabel(best.c)}</button></div>
+    <div class="big">${highlight(best.c.line,best.hit)}</div>
+    ${best.newer?`<div class="rnote">あとから追記された新しい情報を優先して表示しています。元の記述は下の「同じページの関連する文」にあります。</div>`:""}
+    <div class="why"><div>一致した言葉：${words.map(esc).join("、")||"ページ名・見出し"}</div>${Q.types.length?`<div>質問の種類：${Q.types.map(t=>t.label).join("・")} → ${best.typeHit.length?"合う文を優先しました":"合う文はありませんでした"}</div>`:""}${Q.expansions.length?`<div>言い換えも探しました：${Q.expansions.slice(0,5).map(esc).join("、")}</div>`:""}</div></div>
+    ${same.length?`<div class="rh">同じページの関連する文（新しい情報がないか確認を）</div>${same.map(r=>`<button class="cand" data-open="page:${r.c.pid}:${r.c.li}"><span class="s">${highlight(r.c.line,r.hit)}</span></button>`).join("")}`:""}
+    ${others.length?`<div class="rh">ほかの候補</div>${others.map(r=>`<button class="cand" data-open="${r.c.kind}:${r.c.pid||r.c.eid}:${r.c.li}"><b>${srcLabel(r.c)}</b><span class="s">${highlight(r.c.line,r.hit)}</span></button>`).join("")}`:""}`;
+}
+$("#askForm").onsubmit=e=>{ e.preventDefault(); ask($("#askQ").value); };
+$("#askRes").addEventListener("click",async e=>{
+  const o=e.target.closest("[data-open]");
+  if(o){ const [kind,id,li]=o.dataset.open.split(":"); $("#askDlg").close();
+    if(kind==="entry"){ S.view="inbox"; render(); const el=document.getElementById("en-"+id); if(el){ el.scrollIntoView({block:"center"}); flashEntry(id);} }
+    else openPage(id,+li); return; }
+  const sq=e.target.closest("[data-saveq]"); if(sq){ const list=S.meta.saved||[]; if(!list.includes(sq.dataset.saveq)) list.unshift(sq.dataset.saveq); await setMeta("saved",list); sq.textContent="保存しました"; renderRight(); return; }
+  const qp=e.target.closest("[data-qpost]"); if(qp){ $("#askDlg").close(); S.view="stream"; render(); $("#input").value="? "+qp.dataset.qpost; autoSize(); $("#input").focus(); updateSugg(); }
+});
+
+/* ---------------- 書き出し・読み込み ---------------- */
+function download(name,obj){ const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); }
+$("#exportBtn").onclick=async()=>{
+  const d=new Date(); const name=`Stream_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+  download(name,{app:"stream-kb",version:1,exportedAt:new Date().toISOString(),pages:S.pages,entries:S.entries.map(({appended,...e})=>({...e,appended})),synonyms:S.meta.syn??DEFAULT_SYN,savedQuestions:S.meta.saved||[]});
+  await setMeta("lastExport",Date.now()); renderLeft(); showToast("書き出しました。共有フォルダなどに保管してください");
+};
+let impData=null;
+$("#importBtn").onclick=()=>$("#file").click();
+$("#file").onchange=async()=>{
+  const f=$("#file").files[0]; $("#file").value=""; if(!f) return;
+  try{
+    const d=JSON.parse(await f.text());
+    const pages=(d.pages||[]).filter(p=>p&&p.title).map(p=>({id:String(p.id||uid()),title:String(p.title),category:String(p.category||""),body:String(p.body||""),createdAt:+p.createdAt||Date.now(),updatedAt:+p.updatedAt||Date.now()}));
+    const entries=(d.entries||[]).filter(e=>e&&e.text).map(e=>({id:String(e.id||uid()),text:String(e.text),createdAt:+e.createdAt||Date.now(),updatedAt:+e.updatedAt||Date.now(),target:e.target?String(e.target):null,appended:e.appended?String(e.appended):null}));
+    if(!pages.length&&!entries.length) throw 0;
+    impData={pages,entries,syn:typeof d.synonyms==="string"?d.synonyms:null,saved:Array.isArray(d.savedQuestions)?d.savedQuestions.map(String):[]};
+    const sameIds=pages.filter(p=>pageById(p.id)).length, sameTitles=pages.filter(p=>!pageById(p.id)&&pageByTitle(p.title)).length;
+    $("#impInfo").innerHTML=`ファイル：<b>${esc(f.name)}</b><br>ページ ${pages.length} 件・メモ ${entries.length} 件${d.exportedAt?`（${new Date(d.exportedAt).toLocaleString("ja-JP")} に書き出し）`:""}<br><br>
+      <b>追加・更新する</b>：いまのデータは残したまま、新しいものを足します。同じページは<b>更新日が新しい方</b>を残します${sameTitles?`。名前だけ同じ別ページ ${sameTitles} 件は「（取り込み）」をつけて追加します`:""}。<br>
+      <b>置き換える</b>：いまのデータを消して、ファイルの中身だけにします。`;
+    $("#impDlg").showModal();
+  }catch(e){ alert("読み込めませんでした。Streamで書き出したJSONファイルを選んでください。"); }
+};
+$("#impCancel").onclick=()=>{ impData=null; $("#impDlg").close(); };
+$("#impReplace").onclick=async()=>{ if(!impData) return; if(!confirm("いまのデータをすべて消して置き換えます。よろしいですか？")) return; await dbClear(); S.pages=[];S.entries=[];S.meta={}; await doMerge(); };
+$("#impMerge").onclick=()=>doMerge();
+async function doMerge(){
+  const d=impData; impData=null; $("#impDlg").close(); if(!d) return;
+  let addP=0,updP=0,addE=0;
+  for(const p of d.pages){
+    const cur=pageById(p.id);
+    if(cur){ if(p.updatedAt>cur.updatedAt){ Object.assign(cur,p); await dbPut("pages",cur); updP++; } continue; }
+    if(pageByTitle(p.title)) p.title=p.title+"（取り込み）";
+    S.pages.push(p); await dbPut("pages",p); addP++;
+  }
+  for(const e of d.entries){ if(S.entries.some(x=>x.id===e.id)) continue; S.entries.push(e); await dbPut("entries",e); addE++; }
+  if(d.syn&&!S.meta.syn) await setMeta("syn",d.syn);
+  if(d.saved.length) await setMeta("saved",[...new Set([...(S.meta.saved||[]),...d.saved])]);
+  IX.dirty=true; render(); showToast(`ページ追加 ${addP}・更新 ${updP}・メモ追加 ${addE}`);
+}
+
+/* ---------------- 設定 ---------------- */
+$("#settingsBtn").onclick=()=>{ $("#synText").value=S.meta.syn??DEFAULT_SYN; $("#setDlg").showModal(); };
+$("#synSave").onclick=async()=>{ await setMeta("syn",$("#synText").value); readSyn(); $("#setDlg").close(); showToast("言い換え辞書を保存しました"); };
+$("#sampleBtn").onclick=async()=>{ $("#setDlg").close(); await loadSample(); };
+$("#wipeBtn").onclick=async()=>{ if(!confirm("すべてのページとメモを消します。元に戻せません。\n先に「書き出し」でバックアップをとりましたか？")) return; if(!confirm("本当に消しますか？")) return; await dbClear(); S.pages=[];S.entries=[];S.meta={}; IX.dirty=true; $("#setDlg").close(); S.view="stream"; render(); };
+
+/* ---------------- 入力欄 ---------------- */
+const ta=$("#input");
+function autoSize(){ ta.style.height="auto"; ta.style.height=Math.min(220,ta.scrollHeight)+"px"; }
+function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+const updateSugg=debounce(()=>{ const list=suggestFor(ta.value); const prev=S.sugg&&S.sugg.list[S.suggIdx]; S.sugg={list}; const keep=prev?list.findIndex(s=>s.p.id===prev.p.id):-1; S.suggIdx=keep>=0?keep:0; renderSugg(); },160);
+ta.addEventListener("input",()=>{ autoSize(); updateSugg(); updateAC(); });
+let ac={open:false,items:[],idx:0,start:0};
+function updateAC(){
+  const pos=ta.selectionStart, before=ta.value.slice(0,pos), m=before.match(/\[\[([^\]\n]*)$/);
+  if(!m){ closeAC(); return; }
+  const q=m[1].normalize("NFKC").toLowerCase();
+  const items=S.pages.filter(p=>p.title.normalize("NFKC").toLowerCase().includes(q)).slice(0,8);
+  ac={open:true,items,idx:0,start:pos-m[1].length,q:m[1]};
+  const el=$("#ac"); el.hidden=false;
+  el.innerHTML=items.map((p,i)=>`<button type="button" class="${i===0?"on":""}" data-ac="${i}">${esc(p.title)}<span class="cat2">${esc(p.category||"")}</span></button>`).join("")+(m[1].trim()?`<button type="button" data-ac="new" class="${items.length?"":"on"}">＋「${esc(m[1])}」というページをリンク（あとで作れます）</button>`:"");
+  if(!items.length&&!m[1].trim()) closeAC();
+}
+function closeAC(){ ac.open=false; $("#ac").hidden=true; }
+function pickAC(i){
+  const title= i==="new" ? ac.q.trim() : ac.items[i]?.title; if(!title){ closeAC(); return; }
+  const v=ta.value, pos=ta.selectionStart; const after=v.slice(pos).replace(/^\]\]/,"");
+  ta.value=v.slice(0,ac.start)+title+"]]"+after; const np=ac.start+title.length+2; ta.setSelectionRange(np,np); closeAC(); ta.focus(); updateSugg();
+}
+$("#ac").addEventListener("mousedown",e=>{ const b=e.target.closest("[data-ac]"); if(b){ e.preventDefault(); pickAC(b.dataset.ac==="new"?"new":+b.dataset.ac); } });
+ta.addEventListener("keydown",e=>{
+  if(e.isComposing||e.keyCode===229) return;   // 日本語入力の変換中は無視
+  if(ac.open){
+    const btns=[...$("#ac").querySelectorAll("button")];
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); ac.idx=(ac.idx+(e.key==="ArrowDown"?1:-1)+btns.length)%btns.length; btns.forEach((b,i)=>b.classList.toggle("on",i===ac.idx)); return; }
+    if(e.key==="Enter"||e.key==="Tab"){ e.preventDefault(); const b=btns[ac.idx]; if(b) pickAC(b.dataset.ac==="new"?"new":+b.dataset.ac); return; }
+    if(e.key==="Escape"){ e.preventDefault(); closeAC(); return; }
+  }
+  if(e.key==="Tab"&&S.sugg&&S.sugg.list.length>1){ e.preventDefault(); S.suggIdx=(S.suggIdx+(e.shiftKey?-1:1)+S.sugg.list.length)%S.sugg.list.length; renderSugg(); return; }
+  if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); post("later"); return; }
+  if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); post("auto"); return; }
+  if(e.key==="Escape"&&S.sugg){ S.sugg=null; renderSugg(); }
+});
+
+/* ---------------- クリックの受け口 ---------------- */
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("button,select"); if(!t) return;
+  const d=t.dataset;
+  if(d.view){ S.view=d.view; S.pageId=null; render(); if(d.view!=="sitemap") scrollBottom(); return; }
+  if(d.cat!==undefined&&t.classList.contains("cat")){ S.openCats.has(d.cat)?S.openCats.delete(d.cat):S.openCats.add(d.cat); renderLeft(); return; }
+  if(d.page){ openPage(d.page); return; }
+  if(d.goto!==undefined&&t.classList.contains("link")||d.goto!==undefined&&t.classList.contains("chip")){ const p=pageByTitle(d.goto); if(p) openPage(p.id); else openNewPage({title:d.goto}); return; }
+  if(d.toggle){ toggleTodo(d.toggle); return; }
+  if(d.file){ const en=S.entries.find(x=>x.id===d.file), p=pageById(d.to); if(en&&p){ await fileEntry(en,p); render(); } return; }
+  if(d.newfrom){ const en=S.entries.find(x=>x.id===d.newfrom); if(en) openNewPage({fromEntry:en}); return; }
+  if(d.unfile){ const en=S.entries.find(x=>x.id===d.unfile); if(en){ await unfile(en); render(); showToast("振り分けを取り消して、整理待ちに戻しました"); } return; }
+  if(d.delete){ const en=S.entries.find(x=>x.id===d.delete); if(!en) return; if(!confirm("このメモを削除しますか？"+(en.target?"\n追記先のページからも取り除きます。":""))) return; if(en.target) await unfile(en); S.entries=S.entries.filter(x=>x.id!==en.id); await dbDel("entries",en.id); IX.dirty=true; render(); return; }
+  if(d.edit){ const en=S.entries.find(x=>x.id===d.edit); if(!en) return; const nt=prompt("メモを編集",en.text); if(nt===null||!nt.trim()||nt===en.text) return; const linked=autoLink(nt);
+    if(en.target){ const p=pageById(en.target); const na=stampLine(linked,en.createdAt); if(p&&en.appended&&p.body.includes(en.appended)){ p.body=p.body.split(en.appended).join(na); p.updatedAt=Date.now(); await dbPut("pages",p);} en.appended=na; }
+    en.text=linked; en.updatedAt=Date.now(); IX.dirty=true; await dbPut("entries",en); render(); return; }
+  if(d.sidx){ S.suggIdx=+d.sidx; renderSugg(); ta.focus(); return; }
+  if(d.target){ const p=pageById(d.target); if(p&&ta.value.trim()) post({page:p}); else if(p) openPage(p.id); return; }
+  if(d.unsave!==undefined){ const l=S.meta.saved||[]; l.splice(+d.unsave,1); await setMeta("saved",l); renderRight(); return; }
+  switch(d.act){
+    case "postauto": post("auto"); break;
+    case "postlater": post("later"); break;
+    case "postnew": post("new"); break;
+    case "newpage": openNewPage(); break;
+    case "sample": loadSample(); break;
+    case "back": S.view="stream"; S.pageId=null; render(); scrollBottom(); break;
+    case "edit": S.editing=true; renderCenter(); break;
+    case "done": S.editing=false; IX.dirty=true; render(); break;
+    case "delpage": deletePage(pageById(S.pageId)); break;
+    case "inbox": S.view="inbox"; render(); scrollBottom(); break;
+  }
+});
+document.addEventListener("change",async e=>{
+  const s=e.target.closest("[data-pick]"); if(!s||!s.value) return;
+  const en=S.entries.find(x=>x.id===s.dataset.pick), p=pageById(s.value); if(en&&p){ await fileEntry(en,p); render(); }
+});
+$("#askOpen").onclick=openAsk;
+$("#newPageBtn").onclick=()=>openNewPage();
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); openAsk(); }
+});
+
+/* ---------------- トースト ---------------- */
+let toastT=null,toastUndo=null;
+function showToast(text,undo){
+  $("#toastText").textContent=text; toastUndo=undo||null; $("#toastBtn").hidden=!undo;
+  $("#toast").classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>$("#toast").classList.remove("show"),undo?6000:2600);
+}
+$("#toastBtn").onclick=async()=>{ const u=toastUndo; toastUndo=null; $("#toast").classList.remove("show"); if(u){ await u(); showToast("元に戻しました"); } };
+function scrollBottom(){ const sc=$("#scroll"); requestAnimationFrame(()=>sc.scrollTop=sc.scrollHeight); }
+function flashEntry(id){ requestAnimationFrame(()=>{ const el=document.getElementById("en-"+id); if(el){ el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); } }); }
+
+/* ---------------- サンプル ---------------- */
+const DEFAULT_SYN=`交通費=旅費=電車代=タクシー代=移動費
+有給休暇=有給=有休=年休=休暇
+在宅勤務=テレワーク=リモートワーク=在宅
+パスワード=パスワ=pw=ログインできない
+vpn=社外接続=リモート接続
+締め日=締切=締め切り=期限=しめきり
+請求書=インボイス
+備品=文房具=消耗品=事務用品
+欠勤=休む=休み
+パソコン=pc
+担当=窓口=担当者
+連絡=電話=内線
+予約=取る=押さえる
+申請=頼む=依頼`;
+async function loadSample(){
+  if(S.pages.length&&!confirm("サンプルのページとメモを追加します（いまのデータは消えません）。よろしいですか？")) return;
+  const now=Date.now(), day=86400000;
+  const P=[
+   ["業務マニュアル","経費精算の手順","## 1. 領収書をそろえる\n日付・金額・宛名がそろっているか確認する。\n## 2. 申請フォームに入力\n経費システムに入力して、領収書の画像を添付する。\n交通費は [[交通費の上限ルール]] に注意する。\n3万円をこえる経費は、使う前に事前申請が必要。\n## 3. 上長の承認\n経費精算の締め日は毎週金曜日の17時。\nわからないことは経理の佐藤さん（内線 214）へ。"],
+   ["業務マニュアル","交通費の上限ルール","交通費の上限は片道2,000円まで。\nこえる場合は事前に上長の許可をとる。\n定期券の区間は支給しない。\nタクシーは原則使わない。終電後や重い荷物があるときだけ例外。"],
+   ["業務マニュアル","請求書の発行","請求書は毎月25日までに発行する。\nテンプレートは共有フォルダの「経理/請求書」にある。"],
+   ["業務マニュアル","新人オンボーディング","## 最初の1週間\n初日は受付で入館証を受け取る。\n初月のうちに [[経費精算の手順]] を読んでおく。\n## メンター\n今期のメンター担当は田中さん。"],
+   ["人事・休暇","有給休暇の申請方法","有給休暇は勤怠システムから申請する。\n申請は取得日の3日前まで。急な体調不良は当日の朝でもよい。\n半日単位でも取れる。"],
+   ["人事・休暇","在宅勤務のルール","在宅勤務は週2日まで。\n前日の17時までに上長に伝える。"],
+   ["IT・パソコン","VPNがつながらないとき","まずパソコンを再起動して、もう一度接続する。\nそれでもつながらないときは情報システム部（内線 300）に連絡する。"],
+   ["顧客","ミナト商事","担当者は田中さん。\n連絡は月曜の午前中がつかまりやすい。"],
+   ["顧客","北斗物流","配送の相談窓口は中村さん。\n集荷の締め切りは平日の15時。"],
+   ["議事録","9/24 定例","## 決まったこと\n展示会のブース案は来週までに2案にしぼる。"],
+   ["プロジェクト","新システム移行","新しい業務システムへの移行を11月末までに完了する。\n操作の説明会は11月5日と11月12日。"],
+  ];
+  const ids={};
+  for(const [c,t,b] of P){ if(pageByTitle(t)) continue; const p={id:uid(),title:t,category:c,body:b,createdAt:now-30*day,updatedAt:now-(5+Math.random()*20)*day}; ids[t]=p; S.pages.push(p); await dbPut("pages",p); }
+  IX.dirty=true;
+  const E=[
+    [3*day+2*3600e3,"9/24定例で、経費精算の手順の締め日を金曜→木曜に変更と決まった","経費精算の手順"],
+    [2*day+5*3600e3,"ミナト商事の担当が田中さんから木村さんに交代。連絡は月曜午前が確実","ミナト商事"],
+    [1*day+3*3600e3,"在宅勤務のときは、始業時にチャットで「開始します」と一言入れる","在宅勤務のルール"],
+    [5*3600e3,"□ 新システムのアカウント申請を今週中に\n□ 展示会のブース案を部長に確認",null],
+    [2*3600e3,"会議室のプロジェクターは総務の棚にある。使ったら必ず戻す",null],
+  ];
+  for(const [ago_,text,to] of E){
+    const e={id:uid(),text:autoLink(text),createdAt:now-ago_,updatedAt:now-ago_,target:null,appended:null};
+    S.entries.push(e); await dbPut("entries",e);
+    if(to&&pageByTitle(to)) await fileEntry(e,pageByTitle(to),{toast:false});
+  }
+  ["業務マニュアル","顧客"].forEach(c=>S.openCats.add(c));
+  S.view="stream"; render(); scrollBottom(); showToast("サンプルを追加しました。下の欄に何か書いてみてください");
+}
+
+/* ---------------- 起動 ---------------- */
+(async()=>{
+  await dbOpen();
+  S.pages=await dbAll("pages"); S.entries=await dbAll("entries");
+  (await dbAll("meta")).forEach(m=>S.meta[m.k]=m.v);
+  readSyn();
+  if(navigator.storage&&navigator.storage.persist){ try{ navigator.storage.persist(); }catch(e){} }
+  render(); scrollBottom(); ta.focus();
+  setInterval(()=>{ if(S.view==="stream") renderLeft(); },60000);
+})();
+</script>
+</body>
+</html>
