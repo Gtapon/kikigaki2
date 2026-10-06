@@ -1,0 +1,2041 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web修正案エディタ</title>
+<style>
+:root{
+  --bg:#0e1012; --chrome:#16191c; --chrome2:#1f2327; --line:#2c3137; --tx:#d9d5cc; --dim:#7f868f;
+  --amber:#ffb000; --amber-d:#a87600;
+  --paper:#ffffff; --ink:#1c1f23; --ink-dim:#6b7280; --red:#e0262d; --red-soft:#fdecec;
+  --mono:"BIZ UDGothic","Consolas","MS Gothic",monospace;
+  --sans:"BIZ UDPGothic","Yu Gothic UI","Meiryo","Hiragino Sans",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--sans)}
+button{font-family:inherit}
+header.top{position:sticky;top:0;z-index:50;background:var(--chrome);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:10px;padding:8px 14px;flex-wrap:wrap}
+.brand{font:700 13px var(--mono);color:var(--amber);letter-spacing:.14em;white-space:nowrap}
+.brand small{color:var(--dim);font-weight:400;letter-spacing:.04em;margin-left:8px}
+.grp{display:flex;gap:4px;align-items:center}
+.sep{width:1px;height:22px;background:var(--line);margin:0 2px}
+.btn{font:12px var(--mono);color:var(--tx);background:var(--chrome2);border:1px solid var(--line);border-radius:4px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--amber-d);color:#fff}
+.btn.on{background:var(--amber);color:#111;border-color:var(--amber);font-weight:700}
+.btn kbd{font:inherit;opacity:.55;margin-left:5px}
+.btn:disabled{opacity:.35;cursor:default}
+.status{margin-left:auto;font:11px var(--mono);color:var(--dim);white-space:nowrap}
+.status .dirty{color:var(--amber)}
+.status .warn{color:#ff6b6b}
+.tabs{display:flex;gap:3px;padding:6px 14px 0;overflow-x:auto;background:var(--bg);border-top:1px solid var(--line)}
+.tab{font:12px var(--mono);padding:7px 10px 7px 12px;background:var(--chrome);color:var(--dim);border:1px solid var(--line);border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;display:flex;gap:8px;align-items:center;white-space:nowrap;user-select:none}
+.tab:hover{color:var(--tx)}
+.tab.on{background:var(--chrome2);color:#fff;box-shadow:inset 0 2px 0 var(--amber)}
+.tab .cnt{font-size:10px;color:var(--dim);background:var(--bg);border-radius:8px;padding:1px 6px}
+.tab .tx{border:none;background:none;color:var(--dim);cursor:pointer;padding:0 2px;font-size:13px;line-height:1}
+.tab .tx:hover{color:#ff6b6b}
+.tab.add{color:var(--amber);background:transparent;border-style:dashed}
+
+main{padding:20px 16px 120px}
+.doc{max-width:1400px;margin:0 auto}
+.meta{background:var(--paper);color:var(--ink);border-radius:6px;padding:14px 18px;display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin-bottom:16px}
+.meta .m-title{flex:1 1 380px;font:700 20px var(--sans);border:none;border-bottom:2px solid #e5e7eb;padding:4px 2px;outline:none;color:var(--ink);min-width:0}
+.meta .m-title:focus{border-bottom-color:var(--amber)}
+.meta label{font:12px var(--mono);color:var(--ink-dim);display:flex;gap:6px;align-items:center}
+.meta label input{border:1px solid #d1d5db;border-radius:4px;padding:4px 6px;font:13px var(--sans);color:var(--ink)}
+.sheet{display:none}
+.sheet.on{display:block}
+.sheet-title{display:none;font:700 15px var(--sans);color:var(--ink);border-left:5px solid var(--ink);padding-left:8px;margin:0 0 12px}
+
+.entry{background:var(--paper);color:var(--ink);border-radius:6px;margin-bottom:18px;padding:12px 16px 20px;border-left:4px solid transparent}
+.entry.act{border-left-color:var(--amber)}
+.ehead{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.eno{font:700 13px var(--mono);color:#fff;background:var(--ink);padding:5px 8px;border-radius:3px}
+.url{flex:1 1 300px;min-width:160px;font:14px var(--mono);border:1px solid #d1d5db;border-radius:4px;padding:6px 8px;color:#1d4ed8;outline:none}
+.url:focus,.memo:focus{border-color:var(--amber);box-shadow:0 0 0 2px rgba(255,176,0,.25)}
+.ebtn{font:11px var(--mono);background:#f3f4f6;border:1px solid #d1d5db;color:#374151;border-radius:4px;padding:6px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.ebtn:hover{background:#e5e7eb}
+.ebtn:disabled{opacity:.35;cursor:default}
+.ebtn.off{opacity:.35;pointer-events:none}
+.ebtn.danger:hover{background:var(--red-soft);color:var(--red);border-color:#f3b4b6}
+.memo{display:block;width:100%;resize:none;overflow:hidden;font:13px/1.5 var(--sans);color:var(--ink);border:1px solid #e5e7eb;border-radius:4px;padding:5px 8px;margin-bottom:12px;outline:none;background:#fafafa}
+
+.stage{position:relative;display:flex;gap:56px;align-items:flex-start}
+.imgwrap{position:relative;flex:0 1 auto;min-width:0;line-height:0;box-shadow:0 0 0 1px #d1d5db}
+.imgwrap img{display:block;max-width:100%;height:auto;user-select:none;-webkit-user-drag:none}
+.layer{position:absolute;inset:0;cursor:crosshair;z-index:3;touch-action:none}
+body[data-tool=select] .layer{cursor:default}
+.notes{position:relative;flex:0 0 340px;width:340px}
+.leaders{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:2}
+.leaders path{fill:none;stroke:var(--red);stroke-width:2}
+.leaders circle{fill:var(--red)}
+.leaders .sel{stroke:var(--amber);stroke-width:3}
+.leaders circle.sel{fill:var(--amber)}
+.hint{font:12px/1.7 var(--mono);color:var(--ink-dim);border:1px dashed #d1d5db;border-radius:6px;padding:12px}
+
+.mark{position:absolute}
+.mark.rect{border:3px solid var(--red);border-radius:2px}
+.mark.check{width:34px;height:34px;transform:translate(-50%,-50%)}
+.mark.check svg{width:100%;height:100%;display:block;overflow:visible}
+.mark.drawing{border-style:dashed}
+body[data-tool=select] .mark{cursor:move}
+.mark.sel{outline:2px dashed var(--amber);outline-offset:3px}
+.mbadge{position:absolute;left:-12px;top:-12px;min-width:22px;height:22px;border-radius:11px;background:var(--red);color:#fff;font:700 12px/22px var(--mono);text-align:center;padding:0 5px;box-shadow:0 0 0 2px #fff;pointer-events:none}
+.mark.check .mbadge{left:-10px;top:-14px}
+.mark.sel .mbadge{opacity:.3}
+.hd{display:none;position:absolute;width:12px;height:12px;background:#fff;border:2px solid var(--amber);border-radius:2px}
+.mark.sel .hd{display:block}
+.hd.nw{left:-8px;top:-8px;cursor:nwse-resize}.hd.ne{right:-8px;top:-8px;cursor:nesw-resize}
+.hd.sw{left:-8px;bottom:-8px;cursor:nesw-resize}.hd.se{right:-8px;bottom:-8px;cursor:nwse-resize}
+
+.card{position:absolute;left:0;width:100%;background:#fff;border:1.5px solid var(--red);border-radius:6px;padding:8px 10px 10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card.sel{box-shadow:0 0 0 3px rgba(255,176,0,.6)}
+.chead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.cbadge{min-width:22px;height:22px;border-radius:11px;background:var(--red);color:#fff;font:700 12px/22px var(--mono);text-align:center;padding:0 5px;flex:none}
+.ctype{font:12px var(--sans);border:1px solid #d1d5db;border-radius:4px;padding:3px 4px;background:#fafafa;color:var(--ink)}
+.cdel{margin-left:auto;border:none;background:none;color:#9ca3af;font-size:17px;cursor:pointer;line-height:1;padding:0 4px}
+.cdel:hover{color:var(--red)}
+.card label{display:block;font:11px var(--mono);color:var(--ink-dim);margin:6px 0 2px}
+.card textarea{display:block;width:100%;resize:none;border:1px solid #e5e7eb;border-radius:4px;padding:5px 7px;font:13px/1.5 var(--sans);color:var(--ink);overflow:hidden;outline:none}
+.card textarea:focus{border-color:var(--amber)}
+.card textarea.after{background:#fff6f6;border-color:#f3c2c4}
+.att{margin-top:8px}
+.att img{display:block;max-width:100%;max-height:200px;border:1px solid #e5e7eb;border-radius:3px;cursor:zoom-in}
+.attbtn{font:11px var(--mono);background:none;border:1px dashed #d1d5db;color:var(--ink-dim);border-radius:4px;padding:4px 8px;cursor:pointer;margin-top:4px}
+.attbtn:hover{border-color:var(--amber-d);color:var(--ink)}
+.attnote{font:10px var(--mono);color:#9ca3af;margin-top:3px}
+
+.drop{border:2px dashed #cbd5e1;border-radius:8px;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--ink-dim);cursor:pointer;outline:none;text-align:center;padding:20px;font-size:13px}
+.drop b{font-size:16px;color:var(--ink)}
+.drop kbd{font:700 13px var(--mono);background:var(--ink);color:#fff;border-radius:3px;padding:2px 6px}
+.drop:focus,.entry.act .drop{border-color:var(--amber);background:#fffbeb}
+.dragover{outline:3px solid var(--amber)!important;outline-offset:2px}
+.add-entry{display:block;width:100%;padding:14px;border:1px dashed var(--line);background:transparent;color:var(--dim);font:13px var(--mono);border-radius:6px;cursor:pointer}
+.add-entry:hover{color:var(--amber);border-color:var(--amber-d)}
+
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#111;color:#fff;border:1px solid var(--amber-d);font:13px var(--sans);padding:10px 16px;border-radius:6px;opacity:0;pointer-events:none;transition:.2s;z-index:100;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:90;padding:24px}
+.modal.show{display:flex}
+.modal .box{background:var(--chrome);border:1px solid var(--line);border-radius:8px;max-width:680px;width:100%;max-height:90vh;overflow:auto;padding:20px 24px;color:var(--tx)}
+.modal h3{font:700 14px var(--mono);color:var(--amber);letter-spacing:.08em;margin:0 0 12px}
+.modal table{border-collapse:collapse;width:100%;font-size:13px}
+.modal td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.6}
+.modal td:first-child{font-family:var(--mono);color:var(--amber);white-space:nowrap;width:1%}
+.modal p{font-size:12px;color:var(--dim);line-height:1.7}
+#viewer img{max-width:100%;max-height:90vh;background:#fff}
+
+/* ---- print (class is set during printing so the measured layout matches) ---- */
+@page{size:A4 landscape;margin:10mm}
+body.printing{background:#fff}
+body.printing .doc{width:1040px;max-width:none;margin:0}
+body.printing .sheet{display:block}
+body.printing .sheet + .sheet{break-before:page}
+body.printing .sheet-title{display:block}
+body.printing .entry{padding:0 0 14px;border-left:none;border-radius:0;border-bottom:1px solid #ddd;margin-bottom:16px;break-inside:avoid}
+body.printing .ehead .ebtn,body.printing .cdel,body.printing .attbtn,body.printing .attnote,body.printing .add-entry,
+body.printing .hint,body.printing .hd,body.printing .drop,body.printing .entry.empty,body.printing .memo.empty{display:none!important}
+body.printing .mark.sel{outline:none}
+body.printing .mark.sel .mbadge{opacity:1}
+body.printing .card.sel{box-shadow:none}
+body.printing .leaders .sel{stroke:var(--red);stroke-width:2}
+body.printing .leaders circle.sel{fill:var(--red)}
+body.printing textarea,body.printing input,body.printing select{border-color:transparent!important;background:transparent!important;box-shadow:none!important;appearance:none;-webkit-appearance:none}
+body.printing ::placeholder{color:transparent}
+/* ---- mode switch + 操作手順 ---- */
+.modesw{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:2px;gap:2px}
+.modesw button{font:11px var(--mono);color:var(--dim);background:none;border:none;padding:4px 9px;border-radius:3px;cursor:pointer;white-space:nowrap}
+.modesw button:hover{color:var(--tx)}
+.modesw button.on{background:var(--chrome2);color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber-d)}
+body[data-mode=proc] #doc,body[data-mode=proc] #tabs,body[data-mode=proc] #tools,body[data-mode=proc] #toolsSep,body[data-mode=proc] .h-web{display:none!important}
+body:not([data-mode=proc]) #pdoc,body:not([data-mode=proc]) #pbar,body:not([data-mode=proc]) #ptools,body:not([data-mode=proc]) #bPng,body:not([data-mode=proc]) .h-proc{display:none!important}
+.pbar{display:flex;align-items:center;gap:8px;padding:6px 14px;border-top:1px solid var(--line);background:var(--bg);flex-wrap:wrap;min-height:44px}
+.pprops{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.plab{font:11px var(--mono);color:var(--dim)}
+.phint{font:11px var(--mono);color:var(--dim)}
+.sw{display:flex;align-items:center;gap:5px;font:12px var(--sans);color:var(--tx);background:var(--chrome2);border:1px solid var(--line);border-radius:4px;padding:5px 9px;cursor:pointer}
+.sw i{width:12px;height:12px;border-radius:50%;background:var(--c);display:inline-block}
+.sw:hover{border-color:var(--c)}
+.sw.on{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c);color:#fff}
+.btn.danger:hover{color:#ff6b6b;border-color:#ff6b6b}
+.pfs{font:12px var(--mono);background:var(--chrome2);color:var(--tx);border:1px solid var(--line);border-radius:4px;padding:5px}
+#pText{font:13px var(--sans);background:var(--chrome2);color:#fff;border:1px solid var(--line);border-radius:4px;padding:5px 8px;min-width:240px;height:30px;resize:vertical;outline:none}
+#pText:focus{border-color:var(--amber)}
+.step .eno{background:#0f766e}
+.stitle{flex:1 1 300px;min-width:160px;font:700 15px var(--sans);border:1px solid #d1d5db;border-radius:4px;padding:6px 8px;color:var(--ink);outline:none}
+.stitle:focus{border-color:var(--amber)}
+.step .notes{flex:0 0 300px;width:300px}
+.bwrap{position:relative;flex:1 1 auto;min-width:0;line-height:0;box-shadow:0 0 0 1px #d1d5db}
+svg.board{display:block;width:100%;height:auto;touch-action:none;user-select:none;cursor:crosshair}
+body[data-ptool=select] svg.board{cursor:default}
+body[data-ptool=select] svg.board [data-oid]{cursor:move}
+.bhint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font:13px/1.9 var(--sans);color:var(--ink-dim);pointer-events:none}
+.bhint b{font-size:16px;color:var(--ink)}
+.bresize{position:absolute;left:0;right:0;bottom:-8px;height:16px;cursor:ns-resize;display:flex;justify-content:center;align-items:center;z-index:4}
+.bresize::after{content:'';width:54px;height:5px;border-radius:3px;background:#cbd5e1}
+.bresize:hover::after{background:var(--amber)}
+.pcard .ckind{font:11px var(--mono);color:var(--ink-dim)}
+body.printing .lay-sel,body.printing .bhint,body.printing .bresize,body.printing .stage.noobj{display:none!important}
+
+.tables{margin-top:2px}
+.tblock{margin-top:18px;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;background:#fcfcfd}
+.thd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.tlabel{font:700 12px var(--mono);background:#0f766e;color:#fff;padding:5px 8px;border-radius:3px}
+.ttitle{flex:1 1 240px;min-width:140px;font:13px var(--sans);border:1px solid #d1d5db;border-radius:4px;padding:6px 8px;outline:none;color:var(--ink)}
+.ttitle:focus{border-color:var(--amber)}
+.ttools{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.sep2{width:1px;height:18px;background:#e5e7eb;margin:0 4px}
+.legend{display:flex;align-items:center;gap:3px;font:11px var(--mono);color:var(--ink-dim);margin-left:auto}
+.lg{display:inline-block;width:12px;height:12px;border-radius:2px;margin-left:8px;border:1px solid}
+.lg.mod{background:#fff1f2;border-color:#fca5a5}.lg.add{background:#ecfdf5;border-color:#6ee7b7}.lg.del{background:#fef2f2;border-color:#b91c1c}
+.tscroll{overflow:auto;max-width:100%;padding:2px}
+.tedit{border-collapse:collapse;font:13px/1.5 var(--sans);color:var(--ink)}
+.tedit td,.tedit th{border:1px solid #cbd5e1;padding:0;vertical-align:top;min-width:64px;text-align:left;background:#fff}
+.tedit th{background:#f1f5f9;font-weight:700}
+.tedit .cv{padding:5px 8px;outline:none;min-height:30px;white-space:pre-wrap;cursor:text}
+.tedit .old{display:none;padding:3px 8px 0;color:#9ca3af;font-size:11px;font-weight:400}
+.tedit .mod{background:#fff1f2}.tedit .mod .old{display:block}.tedit .mod .cv{color:#b91c1c;font-weight:700}
+.tedit .add{background:#ecfdf5}.tedit .add .cv{color:#047857;font-weight:700}
+.tedit .del{background:#fef2f2}.tedit .del .cv{text-decoration:line-through;color:#b91c1c;opacity:.7;cursor:default}
+.tedit .cur{outline:2px solid var(--amber);outline-offset:-2px}
+.tnote{display:block;width:100%;resize:none;overflow:hidden;margin-top:8px;font:13px/1.5 var(--sans);border:1px solid #e5e7eb;border-radius:4px;padding:5px 8px;outline:none;color:var(--ink)}
+.tpaste{margin-top:18px;border:2px dashed #99c9c2;border-radius:8px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--ink-dim);font-size:13px;outline:none;cursor:pointer;text-align:center}
+.tpaste b{color:var(--ink);font-size:15px}
+.tpaste:focus{border-color:var(--amber);background:#fffbeb}
+.drop.slim{min-height:110px}
+body.printing .ttools,body.printing .thd .ebtn,body.printing .tpaste,body.printing .tnote.empty{display:none!important}
+body.printing .tedit .cur{outline:none}
+
+body.printing input::-webkit-calendar-picker-indicator{display:none}
+body.printing .meta{padding:0 0 12px;border-radius:0}
+@media print{
+  header.top,#toast,.modal{display:none!important}
+  html,body{background:#fff}
+  main{padding:0}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body data-tool="rect" data-mode="web" data-ptool="select">
+<header class="top">
+  <div class="bar">
+    <div class="brand">WEB/FIX<small>修正案エディタ</small></div>
+    <div class="modesw" id="modeSw"><button data-mode="web" title="Web修正案">Web修正</button><button data-mode="proc" title="部内向けの操作手順書">操作手順</button></div>
+    <div class="sep"></div>
+    <div class="grp" id="tools">
+      <button class="btn" data-tool="select" title="移動・サイズ変更・選択(Deleteで削除)">選択<kbd>V</kbd></button>
+      <button class="btn" data-tool="rect" title="ドラッグで囲む">□ 枠<kbd>R</kbd></button>
+      <button class="btn" data-tool="check" title="クリックでチェック">✓ チェック<kbd>C</kbd></button>
+    </div>
+    <div class="sep" id="toolsSep"></div>
+    <div class="grp">
+      <button class="btn" id="bUndo" title="元に戻す (Ctrl+Z)">↶</button>
+      <button class="btn" id="bRedo" title="やり直し (Ctrl+Y)">↷</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grp">
+      <button class="btn" id="bSave" title="このHTMLにデータを埋め込んで保存">保存<kbd>Ctrl+S</kbd></button>
+      <button class="btn" id="bSaveAs">別名保存</button>
+      <button class="btn" id="bReport" title="受け取った人が文言をコピーできる閲覧用HTMLを出力">共有用HTML</button>
+      <button class="btn" id="bPng" title="全ステップを1枚のPNG画像で出力">PNG出力</button>
+      <button class="btn" id="bPrint" title="A4横で印刷 / PDFに保存">印刷・PDF</button>
+      <button class="btn" id="bNew">新規</button>
+      <button class="btn" id="bHelp">?</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="pbar" id="pbar">
+    <div class="grp" id="ptools">
+      <button class="btn" data-ptool="select" title="選択・移動・変形 (V)">選択</button>
+      <button class="btn" data-ptool="rect" title="四角 (R)">□ 四角</button>
+      <button class="btn" data-ptool="ellipse" title="丸 (O)">○ 丸</button>
+      <button class="btn" data-ptool="arrow" title="矢印 (A)">→ 矢印</button>
+      <button class="btn" data-ptool="star" title="星 (S)">☆ 星</button>
+      <button class="btn" data-ptool="check" title="チェック (C)">✓ チェック</button>
+      <button class="btn" data-ptool="text" title="文字 (T)">T 文字</button>
+    </div>
+    <div class="sep"></div>
+    <div class="pprops" id="pprops"></div>
+  </div>
+</header>
+<main><div class="doc" id="doc"></div><div class="doc" id="pdoc"></div></main>
+
+<div id="toast"></div>
+<div class="modal" id="help"><div class="box">
+  <h3>使い方</h3>
+  <table class="h-web">
+    <tr><td>Win+Shift+S</td><td>スクショを撮る → ページの枠をクリック → <b>Ctrl+V</b> で貼り付け。画像が入っているページで Ctrl+V すると、その下に新しいページが追加されます。</td></tr>
+    <tr><td>URL</td><td>アドレスバーでコピー → URL欄に貼り付け(入力欄の外で Ctrl+V しても空のURL欄に入ります)。</td></tr>
+    <tr><td>枠 R</td><td>画像の上をドラッグして囲む → 右側に赤線でつながったカードが出ます。種別(文言修正・画像差し替えなど)を選んで内容を記入。</td></tr>
+    <tr><td>チェック C</td><td>画像をクリックするとチェックマーク+カード。</td></tr>
+    <tr><td>選択 V</td><td>枠をドラッグで移動、角でサイズ変更。Delete で削除、Esc で選択解除。枠をダブルクリックでカードへ移動。</td></tr>
+    <tr><td>添付画像</td><td>カード内の入力欄をクリックしてから Ctrl+V、またはカードに画像をドロップすると差し替え用画像を添付できます。</td></tr>
+    <tr><td>シート</td><td>上のタブ。「+ シート」で追加、ダブルクリックで名前変更。</td></tr>
+    <tr><td>保存</td><td>データ入りのHTMLとして保存。そのファイルを開けば続きから編集でき、そのまま人に渡せます。</td></tr>
+    <tr><td>画像コピー</td><td>注釈込みの1枚画像をクリップボードへ。Excel・メール・Teamsに貼れます。</td></tr>
+    <tr><td>表</td><td>Webページの表を選択してコピー → 画面の何もない所で Ctrl+V(または「＋表」→ Ctrl+V)。セルを直接書き換えると修正(赤)、「＋行/＋列」で追加(緑)、「削除」で削除(取り消し線)として記録されます。</td></tr>
+    <tr><td>共有用HTML</td><td>受け取った人向けの閲覧専用HTMLを出力。URL・現行/修正後の文言に「コピー」ボタンが付き、ページ単位・全体のテキスト一括コピーもできます。</td></tr>
+    <tr><td>印刷・PDF</td><td>全シートをA4横で出力。「PDFに保存」を選べばPDF化。</td></tr>
+  </table>
+  <table class="h-proc">
+    <tr><td>画像</td><td>スクショを撮って <b>Ctrl+V</b>(何枚でもOK、選択中のステップの下に追加)。ドラッグで移動、角をドラッグでサイズ変更(縦横比は固定、Shiftで自由)。</td></tr>
+    <tr><td>図形</td><td>四角 R / 丸 O / 矢印 A / 星 S / チェック C / テキスト T。画像の上をドラッグして描きます。選択 V で移動・変形、Delete で削除、Ctrl+D で複製、矢印キーで微調整。</td></tr>
+    <tr><td>色・太さ</td><td>上のバーで赤・青・黄・紫(1〜4キー)と太さを選択。図形を選んでから押すとその図形が変わります。</td></tr>
+    <tr><td>説明カード</td><td>四角・丸は右側に番号付きの説明カードが付きます。他の図形もバーの「説明カード」で付けられます。</td></tr>
+    <tr><td>ステップ</td><td>手順ごとにタイトル・説明・ボードを作成。ボード下端のつまみで高さ調整。</td></tr>
+    <tr><td>出力</td><td>「PNG出力」で全ステップを1枚の画像に、各ステップの「画像コピー」でそのステップだけクリップボードへ。「HTML出力」で部内共有用の閲覧ページ。</td></tr>
+  </table>
+  <p>上部の「Web修正 / 操作手順」で画面を切り替えます(データは別々に保存されます)。外部通信は一切しません。作業内容はこのブラウザ内に自動保存されますが、共有・バックアップには「保存」したファイルを使ってください。</p>
+  <div style="text-align:right"><button class="btn" data-close>閉じる</button></div>
+</div></div>
+<div class="modal" id="viewer"><img alt=""></div>
+<input type="file" id="filePick" accept="image/*" hidden>
+
+<script type="application/json" id="embedded-data"></script>
+<script>
+'use strict';
+const TEMPLATE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+const DATA_RE = /(<script type="application\/json" id="embedded-data">)([\s\S]*?)(<\/script>)/;
+const SVGNS = 'http://www.w3.org/2000/svg';
+let mode = 'web';
+const TYPES = ['文言修正','画像差し替え','追加','削除','レイアウト','リンク','その他'];
+const PH = {'画像差し替え':'差し替え内容(例:新しいバナー画像に差し替え)','追加':'追加する内容','削除':'削除する内容・理由','レイアウト':'レイアウト変更の内容','リンク':'リンク先の修正内容','その他':'修正内容'};
+const CHECK_SVG = '<svg viewBox="0 0 34 34"><path d="M6 18 L14 26 L29 8" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 18 L14 26 L29 8" fill="none" stroke="#e0262d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CARD_HEAD = 20; // px from card top to header centre (leader target)
+
+/* ---------- helpers ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const uid = () => Math.random().toString(36).slice(2,10);
+const pad2 = n => String(n).padStart(2,'0');
+const today = () => { const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+const clamp = (v,a=0,b=1) => Math.min(b, Math.max(a, v));
+function h(tag, props, ...kids){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(props||{})){
+    if (v==null || v===false) continue;
+    if (k==='class') el.className = v;
+    else if (k==='text') el.textContent = v;
+    else if (k==='html') el.innerHTML = v;
+    else if (k==='value') el.value = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v===true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c!=null && c!==false) el.append(c);
+  return el;
+}
+function clone(o){
+  if (Array.isArray(o)) return o.map(clone);
+  if (o && typeof o==='object'){ const r={}; for (const k in o) r[k]=clone(o[k]); return r; }
+  return o; // strings (images) are shared, not copied
+}
+let toastT;
+function toast(msg, ms=2600){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'), ms); }
+function isTyping(el){ return el && (el.tagName==='INPUT' || el.tagName==='TEXTAREA' || el.tagName==='SELECT' || el.isContentEditable); }
+function autoGrow(t){ if(!t.offsetParent) return; t.style.height='auto'; t.style.height=(t.scrollHeight+2)+'px'; }
+function download(blob, name){ const a=h('a',{href:URL.createObjectURL(blob),download:name}); document.body.append(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1500); }
+function readImage(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{ const src=fr.result; const im=new Image(); im.onload=()=>res({src,w:im.naturalWidth,h:im.naturalHeight}); im.onerror=rej; im.src=src; };
+    fr.onerror=rej; fr.readAsDataURL(file);
+  });
+}
+function loadImg(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+function dataURLtoBlob(d){
+  const i=d.indexOf(','); const mime=(d.slice(0,i).match(/data:([^;,]+)/)||[,'image/png'])[1];
+  const bin=atob(d.slice(i+1)); const u8=new Uint8Array(bin.length);
+  for (let k=0;k<bin.length;k++) u8[k]=bin.charCodeAt(k);
+  return new Blob([u8],{type:mime});
+}
+const urlCache = new Map();
+function imgURL(e){
+  const c=urlCache.get(e.id);
+  if (c && c.src===e.image) return c.url;
+  if (c) URL.revokeObjectURL(c.url);
+  let url; try { url = URL.createObjectURL(dataURLtoBlob(e.image)); } catch { url = e.image; }
+  urlCache.set(e.id,{src:e.image,url}); return url;
+}
+
+/* ---------- model ---------- */
+function newEntry(){ return {id:uid(), url:'', memo:'', image:null, w:0, h:0, notes:[], tables:[]}; }
+function newSheet(name){ return {id:uid(), name, entries:[newEntry()]}; }
+function newDoc(){ const s=newSheet('シート1'); return {v:1, docId:uid(), title:'', author:'', date:today(), sheets:[s], active:s.id, savedAt:0}; }
+function normalize(d){
+  const n = Object.assign(newDoc(), d||{});
+  if (!Array.isArray(n.sheets) || !n.sheets.length) n.sheets=[newSheet('シート1')];
+  n.sheets.forEach(s=>{ s.id=s.id||uid(); s.name=s.name||'シート'; s.entries=(s.entries&&s.entries.length)?s.entries:[newEntry()];
+    s.entries.forEach(e=>{ Object.assign(e, Object.assign(newEntry(), e)); e.notes=(e.notes||[]).map(x=>Object.assign(newNote('rect',0,0),x)); e.tables=(e.tables||[]).map(t=>Object.assign(newTable(),t,{pending:!!t.pending})); }); });
+  if (!n.sheets.some(s=>s.id===n.active)) n.active=n.sheets[0].id;
+  return n;
+}
+function newNote(kind,x,y){ return {id:uid(), kind, x, y, w:0, h:0, type:kind==='check'?'その他':'文言修正', before:'', after:'', text:'', attach:null}; }
+
+let doc = newDoc();
+let tool = 'rect';
+let selected = null;      // {eid,nid}
+let activeEntry = null;   // entry id
+let dirty = false, fileHandle = null, lastAuto = 0, idbOK = true;
+const hist = {undo:[], redo:[]};
+
+const sheetOf = id => doc.sheets.find(s=>s.id===id);
+function findEntry(eid){ for (const s of doc.sheets){ const i=s.entries.findIndex(e=>e.id===eid); if(i>=0) return {s, e:s.entries[i], i}; } return null; }
+const noteById = (e,nid) => e.notes.find(n=>n.id===nid);
+const anchorY = n => n.kind==='rect' ? n.y+n.h/2 : n.y;
+const sortedNotes = e => [...e.notes].sort((a,b)=> (anchorY(a)-anchorY(b)) || (a.x-b.x));
+function anchor(n, W, H){ return n.kind==='rect' ? {x:(n.x+n.w)*W, y:(n.y+n.h/2)*H} : {x:n.x*W+17, y:n.y*H}; }
+function sections(n){ return n.type==='文言修正' ? [{label:'現行',text:n.before},{label:'修正後',text:n.after}] : [{label:null,text:n.text}]; }
+function serialize(){ return {v:1, docId:doc.docId, title:doc.title, author:doc.author, date:doc.date, sheets:doc.sheets, active:doc.active, savedAt:doc.savedAt}; }
+
+/* ---------- history ---------- */
+function snap(){ return clone({title:doc.title, author:doc.author, date:doc.date, sheets:doc.sheets, active:doc.active}); }
+function pushHist(){ hist.undo.push(snap()); if (hist.undo.length>80) hist.undo.shift(); hist.redo.length=0; changed(); }
+function restore(s){ Object.assign(doc, s); if (!sheetOf(doc.active)) doc.active=doc.sheets[0].id; selected=null; render(); changed(); }
+function undo(){ if(!hist.undo.length) return toast('これ以上戻せません'); hist.redo.push(snap()); restore(hist.undo.pop()); }
+function redo(){ if(!hist.redo.length) return; hist.undo.push(snap()); restore(hist.redo.pop()); }
+
+/* ---------- status / autosave ---------- */
+function changed(){ dirty=true; updateStatus(); scheduleAutosave(); }
+function updateStatus(){
+  const t = lastAuto ? new Date(lastAuto) : null;
+  const auto = !idbOK ? '<span class="warn">自動保存できません — こまめに保存してください</span>'
+             : t ? `自動保存 ${pad2(t.getHours())}:${pad2(t.getMinutes())}` : '';
+  const P = mode==='proc', dd = P ? pdirty : dirty, hs = P ? phist : hist;
+  $('#status').innerHTML = (dd ? '<span class="dirty">● 未保存の変更</span>' : 'ファイル保存済') + (auto ? '  ·  '+auto : '');
+  $('#bUndo').disabled = !hs.undo.length; $('#bRedo').disabled = !hs.redo.length;
+}
+let idb = null;
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open('webfix-editor',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function idbReq(mode, fn){ return new Promise((res,rej)=>{ const tx=idb.transaction('kv',mode); const r=fn(tx.objectStore('kv')); tx.oncomplete=()=>res(r && r.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
+const idbGet = k => idbReq('readonly', st=>st.get(k));
+const idbPut = (k,v) => idbReq('readwrite', st=>st.put(v,k));
+const idbDel = k => idbReq('readwrite', st=>st.delete(k));
+let asT;
+function scheduleAutosave(){ clearTimeout(asT); asT=setTimeout(autosave, 800); }
+async function autosave(){
+  if (!idb) return;
+  try{
+    const t=Date.now();
+    await idbPut('doc:'+doc.docId, {savedAt:t, data:serialize()});
+    await idbPut('last', doc.docId);
+    let idx = (await idbGet('index')) || [];
+    idx = idx.filter(x=>x.id!==doc.docId); idx.unshift({id:doc.docId, t, title:doc.title});
+    for (const old of idx.slice(12)) await idbDel('doc:'+old.id);
+    await idbPut('index', idx.slice(0,12));
+    lastAuto=t; idbOK=true;
+  }catch(err){ console.warn(err); idbOK=false; }
+  updateStatus();
+}
+
+/* ---------- render ---------- */
+function render(){
+  const sy = window.scrollY;
+  renderTabs();
+  const d = $('#doc'); d.textContent='';
+  d.append(renderMeta());
+  for (const s of doc.sheets) d.append(renderSheet(s));
+  applySelection();
+  layoutAll();
+  window.scrollTo(0, sy);
+  updateStatus();
+}
+function renderTabs(){
+  const t=$('#tabs'); t.textContent='';
+  for (const s of doc.sheets){
+    const n = s.entries.filter(e=>e.image).length;
+    const tab = h('div',{class:'tab'+(s.id===doc.active?' on':''), title:'ダブルクリックで名前変更'},
+      h('span',{text:s.name}), h('span',{class:'cnt',text:n}),
+      h('button',{class:'tx',text:'×',title:'シートを削除',onclick:ev=>{ev.stopPropagation(); delSheet(s);}}));
+    tab.addEventListener('click',()=>switchSheet(s.id));
+    tab.addEventListener('dblclick',()=>renameSheet(s));
+    t.append(tab);
+  }
+  t.append(h('button',{class:'tab add',text:'+ シート',onclick:addSheet}));
+}
+function renderMeta(){
+  return h('div',{class:'meta'},
+    h('input',{class:'m-title',placeholder:'案件名(例:〇〇サイト 10月更新 修正依頼)',value:doc.title,
+      oninput:ev=>{doc.title=ev.target.value; document.title=(doc.title||'Web修正案エディタ'); changed();}}),
+    h('label',{},'作成者',h('input',{value:doc.author,size:'12',oninput:ev=>{doc.author=ev.target.value; changed();}})),
+    h('label',{},'作成日',h('input',{type:'date',value:doc.date,oninput:ev=>{doc.date=ev.target.value; changed();}})));
+}
+function renderSheet(s){
+  const sec = h('section',{class:'sheet'+(s.id===doc.active?' on':''),'data-sid':s.id}, h('h2',{class:'sheet-title',text:s.name}));
+  s.entries.forEach((e,i)=>sec.append(renderEntry(s,e,i)));
+  sec.append(h('button',{class:'add-entry',text:'+ ページを追加    (画像入りのページを選んで Ctrl+V でも追加できます)',
+    onclick:()=>{ pushHist(); const ne=newEntry(); s.entries.push(ne); activeEntry=ne.id; render(); focusDrop(ne.id); }}));
+  return sec;
+}
+function renderEntry(s,e,i){
+  const empty = !e.image && !e.url && !e.tables.length;
+  const el = h('section',{class:'entry'+(e.id===activeEntry?' act':'')+(empty?' empty':''),'data-eid':e.id});
+  el.addEventListener('pointerdown',()=>setActiveEntry(e.id),true);
+  el.addEventListener('focusin',()=>setActiveEntry(e.id));
+  const okURL = u => /^https?:\/\//i.test(u);
+  const link = h('a',{class:'ebtn'+(okURL(e.url)?'':' off'),href:okURL(e.url)?e.url:'#',target:'_blank',rel:'noopener',text:'開く ↗'});
+  const url = h('input',{class:'url',placeholder:'URLを貼り付け  https://...',value:e.url,spellcheck:'false',
+    oninput:ev=>{ e.url=ev.target.value.trim(); link.href=okURL(e.url)?e.url:'#'; link.classList.toggle('off',!okURL(e.url)); el.classList.toggle('empty',!e.image&&!e.url&&!e.tables.length); changed(); }});
+  const head = h('div',{class:'ehead'},
+    h('span',{class:'eno',text:'P-'+pad2(i+1)}), url, link,
+    e.image ? h('button',{class:'ebtn',text:'画像コピー',title:'注釈込みの画像をクリップボードへ(Excel・メールに貼付可)',onclick:()=>exportPNG(s,e,i)}) : null,
+    e.image ? h('button',{class:'ebtn',text:'画像差替',onclick:()=>pickFile(f=>setEntryImage(e,f))}) : null,
+    h('button',{class:'ebtn',text:'＋表',title:'Webの表を貼り付けて修正指示を書く',onclick:()=>{ pushHist(); const t=newTable(); e.tables.push(t); activeEntry=e.id; render(); const z=$(`.tpaste[data-tid="${t.id}"]`); if (z){ z.focus(); z.scrollIntoView({block:'center',behavior:'smooth'}); } }}),
+    h('button',{class:'ebtn',text:'↑',title:'上へ',disabled:i===0,onclick:()=>moveEntry(s,i,-1)}),
+    h('button',{class:'ebtn',text:'↓',title:'下へ',disabled:i===s.entries.length-1,onclick:()=>moveEntry(s,i,1)}),
+    h('button',{class:'ebtn danger',text:'削除',onclick:()=>delEntry(s,i)}));
+  const memo = h('textarea',{class:'memo'+(e.memo?'':' empty'),rows:'1',placeholder:'ページ全体へのメモ(任意)',value:e.memo});
+  memo.addEventListener('input',()=>{ e.memo=memo.value; memo.classList.toggle('empty',!e.memo); autoGrow(memo); layoutEntry(el); changed(); });
+  el.append(head, memo);
+  if (!e.image){
+    const drop = h('div',{class:'drop'+(e.tables.length?' slim':''),tabindex:'0'},
+      h('b',{text:'ここをクリック → Ctrl+V でスクショを貼り付け'}),
+      h('span',{},'Win+Shift+S で範囲キャプチャ  /  画像ファイルのドラッグ&ドロップもOK'),
+      h('button',{class:'ebtn',text:'ファイルを選択',onclick:ev=>{ev.stopPropagation(); pickFile(f=>setEntryImage(e,f));}}));
+    drop.addEventListener('click',()=>drop.focus());
+    bindDrop(drop, f=>setEntryImage(e,f));
+    el.append(drop);
+  } else {
+    el.append(renderStage(s,e));
+  }
+  if (e.tables.length) el.append(renderTables(e));
+  return el;
+}
+function renderStage(s,e){
+  const order = sortedNotes(e);
+  const num = new Map(order.map((n,k)=>[n.id,k+1]));
+  const img = h('img',{src:imgURL(e),width:e.w,height:e.h,alt:'',draggable:'false'});
+  img.addEventListener('load',()=>{ const en=img.closest('.entry'); if(en) layoutEntry(en); });
+  const layer = h('div',{class:'layer'});
+  for (const n of e.notes) layer.append(markEl(n, num.get(n.id)));
+  layer.addEventListener('pointerdown',ev=>onLayerDown(ev,s,e,layer));
+  layer.addEventListener('dblclick',ev=>{ const m=ev.target.closest('.mark'); if(m) focusCard(m.dataset.nid); });
+  const notes = h('div',{class:'notes'});
+  for (const n of order) notes.append(cardEl(s,e,n,num.get(n.id)));
+  if (!e.notes.length) notes.append(h('div',{class:'hint',html:'画像を<b>ドラッグして枠で囲む</b>(または ✓ でクリック)と、ここに赤線でつながった修正カードが出ます。'}));
+  const svg = document.createElementNS(SVGNS,'svg'); svg.setAttribute('class','leaders');
+  const stage = h('div',{class:'stage'}, h('div',{class:'imgwrap'}, img, layer), notes, svg);
+  bindDrop(stage, f=>addEntryAfter(s,e,f));
+  return stage;
+}
+function markEl(n, num){
+  const el = h('div',{class:'mark '+n.kind,'data-nid':n.id});
+  posMark(el,n);
+  if (n.kind==='check') el.innerHTML = CHECK_SVG;
+  el.append(h('span',{class:'mbadge',text:num}));
+  if (n.kind==='rect') for (const c of ['nw','ne','sw','se']) el.append(h('i',{class:'hd '+c,'data-h':c}));
+  return el;
+}
+function posMark(el,n){
+  el.style.left=(n.x*100)+'%'; el.style.top=(n.y*100)+'%';
+  if (n.kind==='rect'){ el.style.width=(n.w*100)+'%'; el.style.height=(n.h*100)+'%'; }
+}
+function ta(n,key,ph,cls){
+  const t = h('textarea',{class:cls||'',rows:'1',placeholder:ph,value:n[key]||''});
+  t.addEventListener('input',()=>{ n[key]=t.value; autoGrow(t); layoutEntry(t.closest('.entry')); changed(); });
+  return t;
+}
+function cardEl(s,e,n,num){
+  const c = h('div',{class:'card','data-nid':n.id});
+  const sel = h('select',{class:'ctype'}, TYPES.map(t=>h('option',{value:t,text:t})));
+  sel.value = TYPES.includes(n.type) ? n.type : 'その他';
+  sel.addEventListener('change',()=>{ pushHist(); n.type=sel.value; render(); focusCard(n.id); });
+  c.append(h('div',{class:'chead'}, h('span',{class:'cbadge',text:num}), sel,
+    h('button',{class:'cdel',title:'この指摘を削除',text:'×',onclick:()=>delNote(e,n.id)})));
+  if (n.type==='文言修正') c.append(h('label',{text:'現行'}), ta(n,'before','現在の文言'), h('label',{text:'修正後 →'}), ta(n,'after','修正後の文言','after'));
+  else c.append(ta(n,'text', PH[n.type]||'修正内容'));
+  const att = h('div',{class:'att'});
+  if (n.attach){
+    att.append(h('img',{src:n.attach,alt:'',onclick:()=>viewImage(n.attach)}),
+               h('button',{class:'attbtn',text:'添付を外す',onclick:()=>{ pushHist(); n.attach=null; render(); }}));
+  } else {
+    att.append(h('button',{class:'attbtn',text:n.type==='画像差し替え'?'📎 差し替え画像を添付':'📎 画像を添付',onclick:()=>pickFile(f=>attachToNote(n,f))}));
+    if (n.type==='画像差し替え') att.append(h('div',{class:'attnote',text:'入力欄をクリック → Ctrl+V でも添付できます'}));
+  }
+  c.append(att);
+  c.addEventListener('focusin',()=>select(e.id,n.id));
+  c.addEventListener('pointerdown',()=>select(e.id,n.id));
+  bindDrop(c, f=>attachToNote(n,f));
+  return c;
+}
+
+/* ---------- layout (cards + red leader lines) ---------- */
+function layoutAll(){ $$('.entry').forEach(layoutEntry); }
+function layoutEntry(el){
+  if (!el) return;
+  const fe = findEntry(el.dataset.eid); if (!fe) return;
+  const e = fe.e;
+  el.querySelectorAll('textarea').forEach(autoGrow);
+  if (!e.image) return;
+  const stage = el.querySelector('.stage'); if (!stage) return;
+  const sr = stage.getBoundingClientRect(); if (!sr.width) return;
+  const wrap = stage.querySelector('.imgwrap'), notes = stage.querySelector('.notes'), svg = stage.querySelector('.leaders');
+  const wr = wrap.getBoundingClientRect(), nr = notes.getBoundingClientRect();
+  const ox = wr.left-sr.left, oy = wr.top-sr.top, W = wr.width, H = wr.height;
+  const nx = nr.left-sr.left, ny = nr.top-sr.top;
+  let prev = -Infinity; const pts = [];
+  for (const n of sortedNotes(e)){
+    const card = notes.querySelector(`.card[data-nid="${n.id}"]`); if (!card) continue;
+    const a = anchor(n, W, H);
+    const top = Math.max(oy+a.y-ny-CARD_HEAD, prev+10, 0);
+    card.style.top = top+'px';
+    prev = top + card.offsetHeight;
+    pts.push({id:n.id, ax:ox+a.x, ay:oy+a.y, cy:ny+top+CARD_HEAD});
+  }
+  notes.style.height = Math.max(H, prev) + 'px';
+  const sw = stage.offsetWidth, sh = stage.offsetHeight;
+  svg.setAttribute('width', sw); svg.setAttribute('height', sh); svg.setAttribute('viewBox', `0 0 ${sw} ${sh}`);
+  svg.textContent = '';
+  for (const p of pts){
+    const path = document.createElementNS(SVGNS,'path');
+    path.setAttribute('d', `M${p.ax} ${p.ay} H${nx-18} L${nx} ${p.cy}`);
+    path.setAttribute('data-nid', p.id);
+    const dot = document.createElementNS(SVGNS,'circle');
+    dot.setAttribute('cx', p.ax); dot.setAttribute('cy', p.ay); dot.setAttribute('r', 3.5); dot.setAttribute('data-nid', p.id);
+    svg.append(path, dot);
+  }
+  if (selected && selected.eid===e.id) applySelection();
+}
+
+/* ---------- selection / active ---------- */
+function select(eid,nid){ selected = nid ? {eid,nid} : null; applySelection(); }
+function applySelection(){
+  $$('.sel').forEach(x=>x.classList.remove('sel'));
+  if (selected) $$(`[data-nid="${selected.nid}"]`).forEach(x=>x.classList.add('sel'));
+}
+function setActiveEntry(id){
+  if (activeEntry===id) return;
+  activeEntry=id;
+  $$('.entry').forEach(x=>x.classList.toggle('act', x.dataset.eid===id));
+}
+function focusCard(nid){ const t=$(`.card[data-nid="${nid}"] textarea`); if (t) t.focus(); }
+function focusDrop(eid){ const d=$(`.entry[data-eid="${eid}"] .drop`); if (d){ d.focus(); d.scrollIntoView({block:'center',behavior:'smooth'}); } }
+function setTool(t){ tool=t; document.body.dataset.tool=t; $$('#tools .btn').forEach(b=>b.classList.toggle('on', b.dataset.tool===t)); }
+
+/* ---------- drawing on the screenshot ---------- */
+function onLayerDown(ev,s,e,layer){
+  if (ev.button!==0) return;
+  ev.preventDefault();
+  if (document.activeElement && document.activeElement!==document.body) document.activeElement.blur();
+  setActiveEntry(e.id);
+  const entryEl = layer.closest('.entry');
+  const r = layer.getBoundingClientRect();
+  const P = q => ({x:clamp((q.clientX-r.left)/r.width), y:clamp((q.clientY-r.top)/r.height)});
+  const p0 = P(ev);
+  const hd = ev.target.closest('.hd'), mk = ev.target.closest('.mark');
+  let st;
+  if (hd && mk){ const n=noteById(e,mk.dataset.nid); st={mode:'resize',n,el:mk,corner:hd.dataset.h,o:{...n}}; select(e.id,n.id); }
+  else if (tool==='select' && mk){ const n=noteById(e,mk.dataset.nid); st={mode:'move',n,el:mk,o:{...n}}; select(e.id,n.id); }
+  else if (tool==='rect'){ const n=newNote('rect',p0.x,p0.y); const el=markEl(n,''); el.classList.add('drawing'); layer.append(el); st={mode:'create',n,el}; }
+  else if (tool==='check'){ pushHist(); const n=newNote('check',p0.x,p0.y); e.notes.push(n); selected={eid:e.id,nid:n.id}; render(); focusCard(n.id); return; }
+  else { select(null); return; }
+  layer.setPointerCapture(ev.pointerId);
+  let moved=false;
+  const onMove = q => {
+    const p=P(q), dx=p.x-p0.x, dy=p.y-p0.y;
+    if (!moved && Math.abs(dx*r.width)<3 && Math.abs(dy*r.height)<3) return;
+    if (!moved){ moved=true; if (st.mode!=='create') pushHist(); }
+    const n=st.n, o=st.o;
+    if (st.mode==='create'){ n.x=Math.min(p0.x,p.x); n.y=Math.min(p0.y,p.y); n.w=Math.abs(dx); n.h=Math.abs(dy); }
+    else if (st.mode==='move'){
+      if (n.kind==='rect'){ n.x=clamp(o.x+dx,0,1-o.w); n.y=clamp(o.y+dy,0,1-o.h); }
+      else { n.x=clamp(o.x+dx); n.y=clamp(o.y+dy); }
+    } else {
+      let x1=o.x, y1=o.y, x2=o.x+o.w, y2=o.y+o.h;
+      if (st.corner.includes('w')) x1=p.x; if (st.corner.includes('e')) x2=p.x;
+      if (st.corner.includes('n')) y1=p.y; if (st.corner.includes('s')) y2=p.y;
+      n.x=Math.min(x1,x2); n.y=Math.min(y1,y2); n.w=Math.abs(x2-x1); n.h=Math.abs(y2-y1);
+    }
+    posMark(st.el,n);
+    if (st.mode!=='create') layoutEntry(entryEl);
+  };
+  const onUp = () => {
+    layer.removeEventListener('pointermove',onMove); layer.removeEventListener('pointerup',onUp); layer.removeEventListener('pointercancel',onUp);
+    if (st.mode==='create'){
+      st.el.remove();
+      if (st.n.w*r.width>=8 && st.n.h*r.height>=8){ pushHist(); e.notes.push(st.n); selected={eid:e.id,nid:st.n.id}; render(); focusCard(st.n.id); }
+    } else if (moved) render();
+  };
+  layer.addEventListener('pointermove',onMove); layer.addEventListener('pointerup',onUp); layer.addEventListener('pointercancel',onUp);
+}
+
+/* ---------- operations ---------- */
+async function setEntryImage(e,file){
+  try{ const im=await readImage(file); pushHist(); e.image=im.src; e.w=im.w; e.h=im.h; activeEntry=e.id; render(); toast('スクショを貼り付けました — ドラッグで枠を付けられます'); }
+  catch{ toast('画像を読み込めませんでした'); }
+}
+async function addEntryAfter(s,e,file){
+  try{
+    const im=await readImage(file); pushHist();
+    const ne=newEntry(); ne.image=im.src; ne.w=im.w; ne.h=im.h;
+    const i=s.entries.indexOf(e); s.entries.splice(i<0?s.entries.length:i+1,0,ne);
+    activeEntry=ne.id; render();
+    const el=$(`.entry[data-eid="${ne.id}"]`); if (el) el.scrollIntoView({block:'start',behavior:'smooth'});
+    toast('新しいページとして追加しました');
+  }catch{ toast('画像を読み込めませんでした'); }
+}
+async function attachToNote(n,file){
+  try{ const im=await readImage(file); pushHist(); n.attach=im.src; render(); toast('画像を添付しました'); }
+  catch{ toast('画像を読み込めませんでした'); }
+}
+function placeImage(file){
+  const s = sheetOf(doc.active);
+  const fe = activeEntry && findEntry(activeEntry);
+  if (fe && fe.s===s){ if (!fe.e.image) return setEntryImage(fe.e,file); return addEntryAfter(s,fe.e,file); }
+  const last = s.entries[s.entries.length-1];
+  if (!last.image) return setEntryImage(last,file);
+  return addEntryAfter(s,last,file);
+}
+function moveEntry(s,i,d){ const j=i+d; if (j<0||j>=s.entries.length) return; pushHist(); [s.entries[i],s.entries[j]]=[s.entries[j],s.entries[i]]; render(); }
+function delEntry(s,i){
+  const e=s.entries[i];
+  if ((e.image||e.url||e.notes.length) && !confirm(`P-${pad2(i+1)} を削除しますか?`)) return;
+  pushHist(); s.entries.splice(i,1); if (!s.entries.length) s.entries.push(newEntry()); render();
+}
+function delNote(e,nid){ pushHist(); e.notes=e.notes.filter(n=>n.id!==nid); selected=null; render(); }
+function addSheet(){ pushHist(); const s=newSheet('シート'+(doc.sheets.length+1)); doc.sheets.push(s); doc.active=s.id; activeEntry=s.entries[0].id; selected=null; render(); window.scrollTo(0,0); }
+function switchSheet(id){
+  if (doc.active===id) return;
+  doc.active=id; activeEntry=null; selected=null;
+  $$('.sheet').forEach(x=>x.classList.toggle('on', x.dataset.sid===id));
+  renderTabs(); layoutAll(); applySelection(); window.scrollTo(0,0); scheduleAutosave();
+}
+function renameSheet(s){ const nm=prompt('シート名', s.name); if (nm && nm.trim() && nm.trim()!==s.name){ pushHist(); s.name=nm.trim(); render(); } }
+function delSheet(s){
+  if (doc.sheets.length<2) return toast('最後のシートは削除できません');
+  if (!confirm(`「${s.name}」を削除しますか?`)) return;
+  pushHist(); const i=doc.sheets.indexOf(s); doc.sheets.splice(i,1);
+  if (doc.active===s.id) doc.active=doc.sheets[Math.max(0,i-1)].id;
+  render();
+}
+function pickFile(cb){ const inp=$('#filePick'); inp.value=''; inp.onchange=()=>{ const f=inp.files[0]; if (f) cb(f); }; inp.click(); }
+function bindDrop(el, cb){
+  el.addEventListener('dragover',ev=>{ if ([...ev.dataTransfer.types].includes('Files')){ ev.preventDefault(); ev.stopPropagation(); el.classList.add('dragover'); } });
+  el.addEventListener('dragleave',ev=>{ if (!el.contains(ev.relatedTarget)) el.classList.remove('dragover'); });
+  el.addEventListener('drop',ev=>{ el.classList.remove('dragover'); const f=[...ev.dataTransfer.files].find(f=>f.type.startsWith('image/')); if (f){ ev.preventDefault(); ev.stopPropagation(); cb(f); } });
+}
+function viewImage(src){ const v=$('#viewer'); v.querySelector('img').src=src; v.classList.add('show'); }
+
+/* ---------- save / print / new ---------- */
+function fileBase(){ return (doc.title||'Web修正案').replace(/[\\/:*?"<>|\r\n]/g,'_').trim(); }
+function buildHTML(payload){
+  const json = JSON.stringify(payload).replace(/</g,'\\u003c');
+  return TEMPLATE_HTML.replace(DATA_RE, (m,a,b,c)=>a+json+c);
+}
+async function saveFile(asNew){
+  doc.savedAt = Date.now();
+  const blob = new Blob([buildHTML({app:'webfix', mode:'web', data:serialize()})],{type:'text/html'});
+  const name = `${fileBase()}_${(doc.date||today()).replace(/-/g,'')}.html`;
+  if (window.showSaveFilePicker){
+    try{
+      if (!fileHandle || asNew) fileHandle = await window.showSaveFilePicker({suggestedName:name, types:[{description:'HTML',accept:{'text/html':['.html']}}]});
+      const w = await fileHandle.createWritable(); await w.write(blob); await w.close();
+      dirty=false; updateStatus(); toast('保存しました: '+fileHandle.name); return;
+    }catch(err){ if (err && err.name==='AbortError') return; fileHandle=null; }
+  }
+  download(blob, name); dirty=false; updateStatus(); toast('ダウンロードフォルダに保存しました: '+name, 4000);
+}
+function newDocument(){
+  if (dirty && !confirm('未保存の変更があります。新規作成しますか?\n(現在の内容はブラウザ内の自動保存には残ります)')) return;
+  doc=newDoc(); fileHandle=null; hist.undo.length=0; hist.redo.length=0; selected=null; activeEntry=doc.sheets[0].entries[0].id;
+  document.title='Web修正案エディタ'; render(); dirty=false; updateStatus(); window.scrollTo(0,0);
+}
+
+/* ---------- export one page as PNG (for Excel / mail) ---------- */
+function wrapText(g, text, maxW){
+  const out=[];
+  for (const para of String(text||'').split('\n')){
+    let line='';
+    for (const ch of para){ if (line && g.measureText(line+ch).width>maxW){ out.push(line); line=ch; } else line+=ch; }
+    out.push(line);
+  }
+  return out;
+}
+function rr(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+function badge(g,cx,cy,num){
+  g.font='bold 12px '+MONO; const w=Math.max(22, g.measureText(num).width+12);
+  g.fillStyle='#fff'; rr(g,cx-w/2-2,cy-13,w+4,26,13); g.fill();
+  g.fillStyle=RED; rr(g,cx-w/2,cy-11,w,22,11); g.fill();
+  g.fillStyle='#fff'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(num,cx,cy+1); g.textAlign='left'; g.textBaseline='alphabetic';
+}
+const RED='#e0262d', SANS='"BIZ UDPGothic","Yu Gothic UI","Meiryo",sans-serif', MONO='"BIZ UDGothic","Consolas",monospace';
+async function renderEntryCanvas(s,e,i){
+  const img = await loadImg(e.image);
+  const DW = Math.min(e.w, 1400), DH = Math.round(e.h*DW/e.w);
+  const P=24, HEAD=44, GAP=60, CW=380, LH=20, PADC=10;
+  const ix=P, iy=P+HEAD, nx=ix+DW+GAP, W=nx+CW+P;
+  const g0 = document.createElement('canvas').getContext('2d');
+  const cards=[];
+  for (const [k,n] of sortedNotes(e).entries()){
+    g0.font='14px '+SANS;
+    const secs = sections(n).map(sc=>({label:sc.label, lines:wrapText(g0, sc.text, CW-PADC*2)}));
+    let ch = PADC+24+4;
+    for (const sc of secs){ if (sc.label) ch+=18; ch+=sc.lines.length*LH+4; }
+    let att=null;
+    if (n.attach){ const ai=await loadImg(n.attach); let aw=Math.min(CW-PADC*2, ai.naturalWidth), ah=ai.naturalHeight*aw/ai.naturalWidth; if (ah>240){ aw*=240/ah; ah=240; } att={img:ai,w:aw,h:ah}; ch+=ah+8; }
+    ch+=PADC;
+    const a=anchor(n,DW,DH);
+    cards.push({n, num:String(k+1), secs, att, h:ch, ax:ix+a.x, ay:iy+a.y});
+  }
+  let prev=-Infinity;
+  for (const c of cards){ c.y=Math.max(c.ay-22, prev+12, iy); prev=c.y+c.h; }
+  const Hc = Math.max(iy+DH, prev)+P;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=Hc; const g=cv.getContext('2d');
+  g.fillStyle='#fff'; g.fillRect(0,0,W,Hc);
+  // header
+  g.font='bold 13px '+MONO; const no='P-'+pad2(i+1); const nw=g.measureText(no).width+16;
+  g.fillStyle='#1c1f23'; rr(g,P,P,nw,26,3); g.fill(); g.fillStyle='#fff'; g.fillText(no,P+8,P+18);
+  g.font='15px '+MONO; g.fillStyle='#1d4ed8'; g.fillText(e.url||'(URL未入力)', P+nw+12, P+18);
+  g.font='12px '+SANS; g.fillStyle='#6b7280'; g.textAlign='right'; g.fillText([doc.title,s.name].filter(Boolean).join(' / '), W-P, P+18); g.textAlign='left';
+  // image
+  g.drawImage(img,ix,iy,DW,DH); g.strokeStyle='#d1d5db'; g.lineWidth=1; g.strokeRect(ix-.5,iy-.5,DW+1,DH+1);
+  // leaders
+  g.strokeStyle=RED; g.lineWidth=2;
+  for (const c of cards){ g.beginPath(); g.moveTo(c.ax,c.ay); g.lineTo(nx-20,c.ay); g.lineTo(nx,c.y+PADC+12); g.stroke(); g.beginPath(); g.arc(c.ax,c.ay,3.5,0,Math.PI*2); g.fillStyle=RED; g.fill(); }
+  // marks
+  for (const c of cards){
+    const n=c.n;
+    if (n.kind==='rect'){ g.strokeStyle=RED; g.lineWidth=3; g.strokeRect(ix+n.x*DW, iy+n.y*DH, n.w*DW, n.h*DH); badge(g, ix+n.x*DW, iy+n.y*DH, c.num); }
+    else {
+      const cx=ix+n.x*DW, cy=iy+n.y*DH; g.lineCap='round'; g.lineJoin='round';
+      for (const [col,lw] of [['#fff',9],[RED,5]]){ g.strokeStyle=col; g.lineWidth=lw; g.beginPath(); g.moveTo(cx-11,cy+1); g.lineTo(cx-3,cy+9); g.lineTo(cx+12,cy-9); g.stroke(); }
+      g.lineCap='butt'; badge(g, cx-6, cy-14, c.num);
+    }
+  }
+  // cards
+  for (const c of cards){
+    g.fillStyle='#fff'; rr(g,nx,c.y,CW,c.h,6); g.fill(); g.strokeStyle=RED; g.lineWidth=1.5; g.stroke();
+    badge(g, nx+PADC+11, c.y+PADC+12, c.num);
+    g.font='bold 13px '+SANS; g.fillStyle='#1c1f23'; g.fillText(c.n.type, nx+PADC+30, c.y+PADC+17);
+    let y=c.y+PADC+28;
+    for (const sc of c.secs){
+      if (sc.label){ g.font='11px '+MONO; g.fillStyle='#6b7280'; g.fillText(sc.label==='修正後'?'修正後 →':sc.label, nx+PADC, y+12); y+=18; }
+      g.font='14px '+SANS; g.fillStyle = sc.label==='修正後' ? '#b91c1c' : '#1c1f23';
+      for (const ln of sc.lines){ g.fillText(ln, nx+PADC, y+15); y+=LH; }
+      y+=4;
+    }
+    if (c.att){ g.drawImage(c.att.img, nx+PADC, y+4, c.att.w, c.att.h); g.strokeStyle='#e5e7eb'; g.lineWidth=1; g.strokeRect(nx+PADC, y+4, c.att.w, c.att.h); }
+  }
+  return cv;
+}
+async function exportPNG(s,e,i){
+  try{
+    const cv = await renderEntryCanvas(s,e,i);
+    const blob = await new Promise(r=>cv.toBlob(r,'image/png'));
+    try{
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      toast('注釈込みの画像をコピーしました — Excel やメールに Ctrl+V で貼れます', 3500);
+    }catch{
+      download(blob, `${fileBase()}_${s.name}_P${pad2(i+1)}.png`);
+      toast('クリップボードに入れられなかったので PNG として保存しました', 3500);
+    }
+  }catch(err){ console.error(err); toast('画像の書き出しに失敗しました'); }
+}
+
+/* ---------- tables (pasted from the web, edited with change tracking) ---------- */
+const tableCur = {}; // table id -> {r,c} of the selected cell
+function tcell(o, th){ return {id:uid(), o, v:o==null?'':o, th:!!th, rs:1, cs:1}; }
+function newTable(){ return {id:uid(), title:'', note:'', pending:true, rows:[], cols:[]}; }
+function cleanCellText(node){
+  node.querySelectorAll('br').forEach(b=>b.replaceWith('\n'));
+  node.querySelectorAll('p,div,li').forEach(b=>b.append('\n'));
+  return node.textContent.replace(/[ \t \r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{2,}/g,'\n').trim();
+}
+function parseTable(html, text, loose){
+  let grid = null;
+  if (/<table[\s>]/i.test(html||'')){
+    const d = new DOMParser().parseFromString(html,'text/html');
+    const tb = d.querySelector('table');
+    if (tb && tb.rows.length){
+      const trs = [...tb.rows]; grid = [];
+      trs.forEach((tr,r)=>{
+        grid[r] = grid[r] || []; let c = 0;
+        for (const td of tr.cells){
+          while (grid[r][c]) c++;
+          const rs = Math.max(1, Math.min(td.rowSpan || (trs.length-r), trs.length-r));
+          const cs = Math.max(1, Math.min(td.colSpan || 1, 60));
+          const cell = tcell(cleanCellText(td), td.tagName==='TH'); cell.rs = rs; cell.cs = cs;
+          for (let i=0;i<rs;i++){ grid[r+i] = grid[r+i] || []; for (let j=0;j<cs;j++) grid[r+i][c+j] = (i||j) ? {id:uid(), skip:true, ref:cell.id} : cell; }
+          c += cs;
+        }
+      });
+      grid = grid.slice(0, trs.length);
+    }
+  }
+  if (!grid && text && (text.includes('\t') || loose)){
+    const lines = text.replace(/\r/g,'').replace(/\n+$/,'').split('\n');
+    if (lines.join('').trim()) grid = lines.map(l=>l.split('\t').map(v=>tcell(v.trim())));
+  }
+  if (!grid || !grid.length) return null;
+  const W = Math.max(...grid.map(r=>r.length)); if (!W) return null;
+  return {
+    rows: grid.map(r=>{ const cells=[]; for (let c=0;c<W;c++) cells.push(r[c] || tcell('')); return {id:uid(), st:'', cells}; }),
+    cols: Array.from({length:W}, ()=>({id:uid(), st:''}))
+  };
+}
+function blankGrid(R,C){ return {rows:Array.from({length:R},()=>({id:uid(), st:'', cells:Array.from({length:C},()=>tcell(null))})), cols:Array.from({length:C},()=>({id:uid(), st:''}))}; }
+function fillTable(t, g){ t.rows = g.rows; t.cols = g.cols; t.pending = false; }
+function tOrigin(t,id){ for (let r=0;r<t.rows.length;r++){ const c=t.rows[r].cells.findIndex(x=>x.id===id && !x.skip); if (c>=0) return {r, c, cell:t.rows[r].cells[c]}; } return null; }
+function tCover(t,r,c){ const x=t.rows[r] && t.rows[r].cells[c]; if (!x) return null; if (!x.skip) return x; const o=tOrigin(t,x.ref); return o && o.cell; }
+const isHeadRow = row => row.cells.every(x=>x.skip || x.th);
+function tInsertRow(t, at, refRow){
+  const bumped = new Set(), nr = {id:uid(), st:'add', cells:[]};
+  const head = t.rows[refRow] ? isHeadRow(t.rows[refRow]) : false;
+  for (let c=0;c<t.cols.length;c++){
+    const below = t.rows[at] && t.rows[at].cells[c]; let cell = null;
+    if (below && below.skip){ const o=tOrigin(t,below.ref); if (o && o.r<at){ cell={id:uid(), skip:true, ref:below.ref}; if (!bumped.has(below.ref)){ bumped.add(below.ref); o.cell.rs++; } } }
+    nr.cells.push(cell || tcell(null, head));
+  }
+  t.rows.splice(at, 0, nr);
+  return {r:at};
+}
+function tInsertCol(t, at){
+  const bumped = new Set();
+  t.cols.splice(at, 0, {id:uid(), st:'add'});
+  t.rows.forEach(row=>{
+    const right = row.cells[at]; let cell = null;
+    if (right && right.skip){ const o=tOrigin(t,right.ref); if (o && o.c<at){ cell={id:uid(), skip:true, ref:right.ref}; if (!bumped.has(right.ref)){ bumped.add(right.ref); o.cell.cs++; } } }
+    row.cells.splice(at, 0, cell || tcell(null, isHeadRow(row)));
+  });
+  return {c:at};
+}
+function tToggleRow(t, r){
+  const row = t.rows[r];
+  if (row.st==='add'){
+    const seen = new Set();
+    row.cells.forEach(x=>{ if (x.skip && !seen.has(x.ref)){ seen.add(x.ref); const o=tOrigin(t,x.ref); if (o && o.r!==r) o.cell.rs--; } });
+    t.rows.splice(r,1); return {r:Math.max(0,r-1)};
+  }
+  row.st = row.st==='del' ? '' : 'del';
+}
+function tToggleCol(t, c){
+  const col = t.cols[c];
+  if (col.st==='add'){
+    const seen = new Set();
+    t.rows.forEach(row=>{ const x=row.cells[c]; if (x && x.skip && !seen.has(x.ref)){ seen.add(x.ref); const o=tOrigin(t,x.ref); if (o && o.c!==c) o.cell.cs--; } });
+    t.cols.splice(c,1); t.rows.forEach(row=>row.cells.splice(c,1)); return {c:Math.max(0,c-1)};
+  }
+  col.st = col.st==='del' ? '' : 'del';
+}
+function tState(t,r,c,x){
+  const row=t.rows[r], col=t.cols[c];
+  if (row.st==='del' || col.st==='del') return 'del';
+  if (row.st==='add' || col.st==='add' || x.o==null) return 'add';
+  return x.v!==x.o ? 'mod' : '';
+}
+function tFinal(t){
+  const mapR=new Map(), mapC=new Map();
+  t.rows.forEach((r,i)=>{ if (r.st!=='del') mapR.set(i, mapR.size); });
+  t.cols.forEach((c,i)=>{ if (c.st!=='del') mapC.set(i, mapC.size); });
+  const out = Array.from({length:mapR.size}, ()=>[]);
+  t.rows.forEach((row,r)=>row.cells.forEach((x,c)=>{
+    if (x.skip) return;
+    const R=[], C=[];
+    for (let i=r;i<r+x.rs;i++) if (mapR.has(i)) R.push(mapR.get(i));
+    for (let j=c;j<c+x.cs;j++) if (mapC.has(j)) C.push(mapC.get(j));
+    if (!R.length || !C.length) return;
+    out[R[0]].push({c:C[0], rs:R.length, cs:C.length, v:x.v, th:x.th});
+  }));
+  out.forEach(r=>r.sort((a,b)=>a.c-b.c));
+  return {rows:out, W:mapC.size};
+}
+function tFinalHTML(t){
+  const f = tFinal(t);
+  let nh = 0; while (nh<f.rows.length && f.rows[nh].length && f.rows[nh].every(x=>x.th)) nh++;
+  if (nh===f.rows.length) nh = 0;
+  const tr = r => '    <tr>\n' + r.map(x=>{ const tag=x.th?'th':'td'; return '      <'+tag+(x.rs>1?' rowspan="'+x.rs+'"':'')+(x.cs>1?' colspan="'+x.cs+'"':'')+'>'+esc(x.v).replace(/\n/g,'<br>')+'</'+tag+'>'; }).join('\n') + '\n    </tr>';
+  let s = '<table>\n';
+  if (nh) s += '  <thead>\n' + f.rows.slice(0,nh).map(tr).join('\n') + '\n  </thead>\n';
+  return s + '  <tbody>\n' + f.rows.slice(nh).map(tr).join('\n') + '\n  </tbody>\n</table>';
+}
+function tFinalTSV(t){
+  const f = tFinal(t); const g = f.rows.map(()=>Array(f.W).fill(''));
+  f.rows.forEach((r,i)=>r.forEach(x=>{ g[i][x.c] = x.v.replace(/[\t\n]/g,' '); }));
+  return g.map(r=>r.join('\t')).join('\n');
+}
+const richTable = fh => fh.replace('<table>','<table border="1" cellpadding="4" style="border-collapse:collapse">');
+const shortTxt = s => { s=String(s||'').replace(/\s+/g,' ').trim(); return s.length>24 ? s.slice(0,24)+'…' : s; };
+const oneLine = s => String(s||'').replace(/\n/g,' / ');
+function tChanges(t){
+  const hdr = []; for (const row of t.rows){ if (row.st!=='add' && isHeadRow(row)) hdr.push(row); else break; }
+  const colLabel = c => { for (let k=hdr.length-1;k>=0;k--){ const x=tCover(t, t.rows.indexOf(hdr[k]), c); const s=x && (x.o!=null ? x.o : x.v); if (s) return shortTxt(s); } return (c+1)+'列目'; };
+  const rowLabel = r => { if (hdr.includes(t.rows[r])) return '見出し行'; for (let c=0;c<t.cols.length;c++){ const x=tCover(t,r,c); const s=x && (x.o!=null ? x.o : x.v); if (s) return shortTxt(s); } return (r+1)+'行目'; };
+  const prevKept = (arr,i) => { for (let k=i-1;k>=0;k--) if (arr[k].st!=='add') return k; return -1; };
+  const out = [];
+  t.cols.forEach((col,c)=>{
+    if (col.st==='add'){ const p=prevKept(t.cols,c); out.push('列追加: 「'+colLabel(c)+'」('+(p<0?'左端':'「'+colLabel(p)+'」の右')+')'); }
+    else if (col.st==='del') out.push('列削除: 「'+colLabel(c)+'」');
+  });
+  t.rows.forEach((row,r)=>{
+    if (row.st==='add'){
+      const p = prevKept(t.rows,r);
+      const vals = row.cells.map((x,c)=>(x.skip || t.cols[c].st==='del') ? null : oneLine(x.v)).filter(v=>v!=null);
+      out.push('行追加('+(p<0?'先頭':'「'+rowLabel(p)+'」の下')+'): '+vals.join(' | '));
+    } else if (row.st==='del') out.push('行削除: 「'+rowLabel(r)+'」');
+    else row.cells.forEach((x,c)=>{
+      if (x.skip || t.cols[c].st!=='') return;
+      if (x.o!=null && x.v!==x.o) out.push('修正: 「'+rowLabel(r)+'」×「'+colLabel(c)+'」 '+(oneLine(x.o)||'(空)')+' → '+(oneLine(x.v)||'(空)'));
+    });
+  });
+  return out;
+}
+function tableText(t,k){
+  const lines = ['[表'+(k+1)+(t.title?' '+t.title:'')+']'];
+  const ch = tChanges(t); ch.forEach(x=>lines.push('  '+x));
+  if (!ch.length) lines.push('  (変更なし)');
+  if (t.note) lines.push('  補足: '+indent(t.note));
+  return lines.join('\n');
+}
+async function copyText(text, msg){
+  try{ await navigator.clipboard.writeText(text); toast(msg); }
+  catch{
+    const ta = h('textarea',{style:'position:fixed;opacity:0'}); ta.value = text; document.body.append(ta); ta.select();
+    try{ document.execCommand('copy'); toast(msg); }catch{ toast('コピーできませんでした'); }
+    ta.remove();
+  }
+}
+function focusTCell(tid, r, c){
+  const cv = $(`.tblock[data-tid="${tid}"] [data-r="${r}"][data-c="${c}"] .cv`);
+  if (cv) cv.focus();
+}
+function tOp(t, fn){
+  const cur = tableCur[t.id];
+  const x = cur && t.rows[cur.r] && t.rows[cur.r].cells[cur.c];
+  if (!x || x.skip) return toast('先に表のセルをクリックして選択してください');
+  pushHist();
+  const res = fn(t, cur.r, cur.c, x) || {};
+  let r = res.r!=null ? res.r : cur.r, c = res.c!=null ? res.c : cur.c;
+  r = clamp(r, 0, t.rows.length-1); c = clamp(c, 0, t.cols.length-1);
+  const y = t.rows[r].cells[c];
+  if (y.skip){ const o=tOrigin(t,y.ref); if (o){ r=o.r; c=o.c; } }
+  tableCur[t.id] = {r,c};
+  render(); focusTCell(t.id, r, c);
+}
+function renderTables(e){
+  const wrap = h('div',{class:'tables'});
+  e.tables.forEach((t,k)=>wrap.append(t.pending ? renderTPaste(e,t) : renderTable(e,t,k)));
+  return wrap;
+}
+function renderTPaste(e,t){
+  const z = h('div',{class:'tpaste',tabindex:'0','data-tid':t.id},
+    h('b',{text:'ここをクリック → Ctrl+V で表を貼り付け'}),
+    h('span',{text:'Webページの表をドラッグで選択してコピー(Excelからのコピーも可)'}),
+    h('div',{class:'grp'},
+      h('button',{class:'ebtn',text:'空の表で始める(3×3)',onclick:ev=>{ ev.stopPropagation(); pushHist(); fillTable(t, blankGrid(3,3)); tableCur[t.id]={r:0,c:0}; render(); focusTCell(t.id,0,0); }}),
+      h('button',{class:'ebtn danger',text:'取り消し',onclick:ev=>{ ev.stopPropagation(); pushHist(); e.tables=e.tables.filter(x=>x!==t); render(); }})));
+  z.addEventListener('click',()=>z.focus());
+  return z;
+}
+function renderTable(e,t,k){
+  const cur = tableCur[t.id];
+  const blk = h('div',{class:'tblock','data-tid':t.id});
+  blk.append(h('div',{class:'thd'},
+    h('span',{class:'tlabel',text:'表'+(k+1)}),
+    h('input',{class:'ttitle',placeholder:'表の名前・場所(例:料金表、ページ下部の仕様表)',value:t.title,oninput:ev=>{ t.title=ev.target.value; changed(); }}),
+    h('button',{class:'ebtn',text:'修正後HTMLをコピー',title:'変更を反映した<table>のHTMLソース',onclick:()=>copyText(tFinalHTML(t),'修正後の表のHTMLをコピーしました')}),
+    h('button',{class:'ebtn danger',text:'表を削除',onclick:()=>{ if (!confirm('この表を削除しますか?')) return; pushHist(); e.tables=e.tables.filter(x=>x!==t); render(); }})));
+  const B = (text, title, fn) => h('button',{class:'ebtn tb',text,title,disabled:!cur,onpointerdown:ev=>ev.preventDefault(),onclick:()=>tOp(t,fn)});
+  blk.append(h('div',{class:'ttools'},
+    B('＋行 上','選択セルの上に行を追加',(t,r)=>tInsertRow(t,r,r)),
+    B('＋行 下','選択セルの下に行を追加',(t,r,c,x)=>tInsertRow(t,r+x.rs,r)),
+    B('行を削除/復活','選択セルの行を削除指定(もう一度で取り消し)',(t,r)=>tToggleRow(t,r)),
+    h('span',{class:'sep2'}),
+    B('＋列 左','選択セルの左に列を追加',(t,r,c)=>tInsertCol(t,c)),
+    B('＋列 右','選択セルの右に列を追加',(t,r,c,x)=>tInsertCol(t,c+x.cs)),
+    B('列を削除/復活','選択セルの列を削除指定(もう一度で取り消し)',(t,r,c)=>tToggleCol(t,c)),
+    h('span',{class:'sep2'}),
+    B('セルを元に戻す','書き換えたセルを元の文言に戻す',(t,r,c,x)=>{ if (x.o!=null) x.v=x.o; }),
+    h('span',{class:'legend',html:'<i class="lg mod"></i>修正<i class="lg add"></i>追加<i class="lg del"></i>削除'})));
+  const tbl = h('table',{class:'tedit'});
+  t.rows.forEach((row,r)=>{
+    const tr = h('tr');
+    row.cells.forEach((x,c)=>{
+      if (x.skip) return;
+      const st = tState(t,r,c,x);
+      const td = h(x.th?'th':'td',{class:st+(cur&&cur.r===r&&cur.c===c?' cur':''),rowspan:x.rs>1?x.rs:null,colspan:x.cs>1?x.cs:null,'data-r':r,'data-c':c});
+      const cv = h('div',{class:'cv',text:x.v,tabindex:'0'});
+      if (st!=='del'){ cv.setAttribute('contenteditable','plaintext-only'); if (cv.contentEditable!=='plaintext-only') cv.setAttribute('contenteditable','true'); }
+      cv.addEventListener('focus',()=>{
+        tableCur[t.id]={r,c}; setActiveEntry(e.id);
+        blk.querySelectorAll('.cur').forEach(z=>z.classList.remove('cur')); td.classList.add('cur');
+        blk.querySelectorAll('.tb').forEach(b=>b.disabled=false);
+      });
+      cv.addEventListener('input',()=>{ x.v = cv.innerText.replace(/\n$/,''); td.classList.toggle('mod', tState(t,r,c,x)==='mod'); changed(); });
+      td.addEventListener('click',ev=>{ if (ev.target===td) cv.focus(); });
+      td.append(h('s',{class:'old',text:x.o||'(空)'}), cv);
+      tr.append(td);
+    });
+    tbl.append(tr);
+  });
+  blk.append(h('div',{class:'tscroll'}, tbl));
+  const note = h('textarea',{class:'tnote'+(t.note?'':' empty'),rows:'1',placeholder:'この表についての補足(任意)',value:t.note});
+  note.addEventListener('input',()=>{ t.note=note.value; note.classList.toggle('empty',!t.note); autoGrow(note); changed(); });
+  blk.append(note);
+  return blk;
+}
+function currentEntry(){
+  const s = sheetOf(doc.active); const fe = activeEntry && findEntry(activeEntry);
+  if (fe && fe.s===s) return fe;
+  return {s, e:s.entries[s.entries.length-1], i:s.entries.length-1};
+}
+function addTableFromPaste(parsed, tz){
+  if (tz){
+    const fe = findEntry(tz.closest('.entry').dataset.eid);
+    const t = fe && fe.e.tables.find(x=>x.id===tz.dataset.tid); if (!t) return;
+    pushHist(); fillTable(t, parsed); render();
+  } else {
+    const fe = currentEntry(); pushHist();
+    const t = newTable(); fillTable(t, parsed); fe.e.tables.push(t); activeEntry = fe.e.id; render();
+    const el = $(`.tblock[data-tid="${t.id}"]`); if (el) el.scrollIntoView({block:'center',behavior:'smooth'});
+  }
+  toast('表を貼り付けました — セルをクリックして直接書き換えられます', 3500);
+}
+
+/* ---------- shareable HTML (read-only, copy-friendly) ---------- */
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const indent = t => String(t||'').replace(/\n/g,'\n    ');
+function noteText(n,num){
+  const hd = '(' + num + ') ' + n.type;
+  return n.type==='文言修正'
+    ? hd + '\n  現行  : ' + indent(n.before) + '\n  修正後: ' + indent(n.after)
+    : hd + '\n  ' + indent(n.text);
+}
+function pageText(s,e,i){
+  const lines = ['■ ' + s.name + ' / P-' + pad2(i+1), 'URL: ' + (e.url || '(未入力)')];
+  if (e.memo) lines.push('メモ: ' + e.memo);
+  sortedNotes(e).forEach((n,k)=>lines.push(noteText(n,k+1)));
+  e.tables.filter(t=>!t.pending).forEach((t,k)=>lines.push(tableText(t,k)));
+  return lines.join('\n');
+}
+const hasContent = e => e.image || e.url || e.notes.length || e.tables.some(t=>!t.pending);
+function allText(){
+  const head = [doc.title || 'Web修正案', [doc.author && '作成者: '+doc.author, doc.date && '作成日: '+doc.date].filter(Boolean).join('  ')].filter(Boolean).join('\n');
+  const parts = [];
+  doc.sheets.forEach(s=>s.entries.forEach((e,i)=>{ if (hasContent(e)) parts.push(pageText(s,e,i)); }));
+  return head + '\n\n' + parts.join('\n\n');
+}
+const REPORT_CSS = `*{box-sizing:border-box}
+body{margin:0;background:#eef0f3;color:#1c1f23;font-family:"BIZ UDPGothic","Yu Gothic UI","Meiryo",sans-serif}
+header{background:#16191c;color:#fff;padding:18px 24px}
+header h1{margin:0 0 6px;font-size:20px}
+.meta{font:12px "BIZ UDGothic",Consolas,monospace;color:#9aa1aa}
+.hbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px}
+nav a{color:#ffb000;font-size:13px;margin-right:12px;text-decoration:none}
+nav a:hover{text-decoration:underline}
+.wrap{max-width:1400px;margin:0 auto;padding:20px 16px 60px}
+.sheet h2{font-size:15px;border-left:5px solid #1c1f23;padding-left:8px;margin:8px 0 12px}
+.entry{background:#fff;border-radius:6px;padding:14px 16px 20px;margin-bottom:18px}
+.ehead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.eno{font:700 13px "BIZ UDGothic",Consolas,monospace;color:#fff;background:#1c1f23;padding:5px 8px;border-radius:3px}
+.url{font:14px "BIZ UDGothic",Consolas,monospace;color:#1d4ed8;word-break:break-all}
+.cp{font:11px "BIZ UDGothic",Consolas,monospace;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;padding:5px 8px;cursor:pointer;color:#374151;white-space:nowrap}
+.cp:hover{border-color:#a87600;color:#111}
+.cp.ok{background:#ecfdf5;border-color:#34d399;color:#065f46}
+.cp.all{margin-left:auto}
+header .cp{background:#ffb000;border-color:#ffb000;color:#111;font-weight:700;padding:7px 12px}
+.memo{white-space:pre-wrap;background:#fafafa;border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px;font-size:13px;margin:0 0 12px}
+.stage{position:relative;display:flex;gap:56px;align-items:flex-start}
+.imgwrap{position:relative;flex:0 1 auto;min-width:0;line-height:0;box-shadow:0 0 0 1px #d1d5db}
+.imgwrap img{display:block;max-width:100%;height:auto}
+.mark{position:absolute;pointer-events:none}
+.mark.rect{border:3px solid #e0262d;border-radius:2px}
+.mark.check{width:34px;height:34px;transform:translate(-50%,-50%)}
+.mark.check svg{width:100%;height:100%;display:block;overflow:visible}
+.mb,.cb{min-width:22px;height:22px;border-radius:11px;background:#e0262d;color:#fff;font:700 12px/22px "BIZ UDGothic",Consolas,monospace;text-align:center;padding:0 5px}
+.mb{position:absolute;left:-12px;top:-12px;box-shadow:0 0 0 2px #fff}
+.mark.check .mb{left:-10px;top:-14px}
+.notes{position:relative;flex:0 0 340px;width:340px;display:flex;flex-direction:column;gap:10px}
+.notes.abs{display:block}
+.notes.abs .card{position:absolute;left:0;width:100%}
+.card{border:1.5px solid #e0262d;border-radius:6px;padding:8px 10px 10px;background:#fff}
+.chead{display:flex;gap:8px;align-items:center;font-size:13px}
+.fld{margin-top:6px}
+.lab{display:flex;justify-content:space-between;align-items:center;font:11px "BIZ UDGothic",Consolas,monospace;color:#6b7280;margin-bottom:2px}
+.lab .cp{padding:2px 7px;font-size:10px}
+.txt{white-space:pre-wrap;font-size:13.5px;line-height:1.55;border:1px solid #e5e7eb;border-radius:4px;padding:5px 7px;word-break:break-word}
+.after .txt{background:#fff6f6;border-color:#f3c2c4;color:#b91c1c}
+.none{color:#9ca3af}
+.att{display:block;max-width:100%;max-height:220px;margin-top:8px;border:1px solid #e5e7eb}
+.leaders{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.leaders path{fill:none;stroke:#e0262d;stroke-width:2}
+.leaders circle{fill:#e0262d}
+.tblock{margin-top:18px;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px}
+.thd{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:14px}
+.tlabel{font:700 12px "BIZ UDGothic",Consolas,monospace;background:#0f766e;color:#fff;padding:4px 7px;border-radius:3px}
+.legend{font-size:11px;color:#6b7280;margin-left:auto;display:flex;gap:3px;align-items:center}
+.lg{display:inline-block;width:12px;height:12px;border-radius:2px;margin-left:8px;border:1px solid}
+.lg.mod{background:#fff1f2;border-color:#fca5a5}.lg.add{background:#ecfdf5;border-color:#6ee7b7}.lg.del{background:#fef2f2;border-color:#b91c1c}
+.tbtns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tscroll{overflow:auto}
+.tview{border-collapse:collapse;font-size:13px}
+.tview td,.tview th{border:1px solid #cbd5e1;padding:5px 8px;vertical-align:top;white-space:pre-wrap;text-align:left}
+.tview th{background:#f1f5f9}
+.tview .mod{background:#fff1f2}.tview .old{display:block;color:#9ca3af;font-size:11px;font-weight:400}.tview .nv{color:#b91c1c;font-weight:700}
+.tview .add{background:#ecfdf5;color:#047857;font-weight:700}
+.tview .del{background:#fef2f2;color:#b91c1c;text-decoration:line-through;opacity:.75}
+.tchanges{font-size:13px;line-height:1.75;margin:10px 0 0;padding-left:22px}
+@media (max-width:900px){.stage{flex-direction:column;gap:14px}.notes{width:100%;flex:none}.leaders{display:none}}
+@page{size:A4 landscape;margin:10mm}
+body.printing{background:#fff}
+body.printing .wrap{width:1040px;max-width:none;margin:0;padding:0}
+body.printing .entry{padding:0 0 14px;border-radius:0;border-bottom:1px solid #ddd;break-inside:avoid}
+body.printing .sheet + .sheet{break-before:page}
+@media print{header{background:#fff;color:#000;padding:0 0 10px}.cp,nav{display:none!important}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+function reportRuntime(){
+  function cp(t, b){
+    var done = function(){ var o=b.textContent; b.textContent='✓ コピーしました'; b.classList.add('ok'); setTimeout(function(){ b.textContent=o; b.classList.remove('ok'); }, 1400); };
+    var fb = function(){ var ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} ta.remove(); done(); };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, fb); else fb();
+  }
+  function rich(html, txt, b){
+    var done = function(){ var o=b.textContent; b.textContent='✓ コピーしました'; b.classList.add('ok'); setTimeout(function(){ b.textContent=o; b.classList.remove('ok'); }, 1400); };
+    var fb = function(){ var d=document.createElement('div'); d.innerHTML=html; d.style.position='fixed'; d.style.left='-9999px'; document.body.appendChild(d); var rg=document.createRange(); rg.selectNodeContents(d); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(rg); try{ document.execCommand('copy'); }catch(e){} sel.removeAllRanges(); d.remove(); done(); };
+    if (navigator.clipboard && window.ClipboardItem && window.isSecureContext){
+      navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([txt],{type:'text/plain'})})]).then(done, fb);
+    } else fb();
+  }
+  document.addEventListener('click', function(ev){
+    var b = ev.target.closest('.cp'); if (!b) return;
+    if (b.hasAttribute('data-html')) return rich(b.getAttribute('data-html'), b.getAttribute('data-copy'), b);
+    var t = b.hasAttribute('data-copy') ? b.getAttribute('data-copy') : b.closest('.fld').querySelector('.txt').textContent;
+    cp(t, b);
+  });
+  var NS='http://www.w3.org/2000/svg';
+  function lay(){
+    var narrow = !document.body.classList.contains('printing') && window.matchMedia('(max-width:900px)').matches;
+    document.querySelectorAll('.stage').forEach(function(st){
+      var notes=st.querySelector('.notes'), svg=st.querySelector('.leaders'), wrap=st.querySelector('.imgwrap');
+      var cards=[].slice.call(notes.children);
+      svg.textContent='';
+      if (narrow){ notes.classList.remove('abs'); notes.style.height=''; cards.forEach(function(c){ c.style.top=''; }); return; }
+      notes.classList.add('abs');
+      var sr=st.getBoundingClientRect(), wr=wrap.getBoundingClientRect(), nr=notes.getBoundingClientRect();
+      var ox=wr.left-sr.left, oy=wr.top-sr.top, nx=nr.left-sr.left, ny=nr.top-sr.top, prev=-1e9;
+      cards.forEach(function(c){
+        var ax=ox+parseFloat(c.dataset.ax)*wr.width+parseFloat(c.dataset.px||0), ay=oy+parseFloat(c.dataset.ay)*wr.height;
+        var top=Math.max(ay-ny-20, prev+10, 0);
+        c.style.top=top+'px'; prev=top+c.offsetHeight;
+        var p=document.createElementNS(NS,'path'); p.setAttribute('d','M'+ax+' '+ay+' H'+(nx-18)+' L'+nx+' '+(ny+top+20));
+        var d=document.createElementNS(NS,'circle'); d.setAttribute('cx',ax); d.setAttribute('cy',ay); d.setAttribute('r',3.5);
+        if (c.dataset.color){ p.style.stroke=c.dataset.color; d.style.fill=c.dataset.color; }
+        svg.appendChild(p); svg.appendChild(d);
+      });
+      notes.style.height=Math.max(wr.height, prev)+'px';
+      svg.setAttribute('width', st.offsetWidth); svg.setAttribute('height', st.offsetHeight);
+    });
+  }
+  window.addEventListener('load', lay);
+  window.addEventListener('resize', lay);
+  window.addEventListener('beforeprint', function(){ document.body.classList.add('printing'); lay(); });
+  window.addEventListener('afterprint', function(){ document.body.classList.remove('printing'); lay(); });
+  lay();
+}
+
+function reportTableHTML(t,k){
+  const rows = t.rows.map((row,r)=>'<tr>'+row.cells.map((x,c)=>{
+    if (x.skip) return '';
+    const st = tState(t,r,c,x), tag = x.th?'th':'td';
+    const attrs = (x.rs>1?' rowspan="'+x.rs+'"':'')+(x.cs>1?' colspan="'+x.cs+'"':'');
+    const body = st==='mod' ? '<s class="old">'+(esc(x.o)||'(空)')+'</s><span class="nv">'+(esc(x.v)||'(空)')+'</span>' : esc(x.v);
+    return '<'+tag+' class="'+st+'"'+attrs+'>'+body+'</'+tag+'>';
+  }).join('')+'</tr>').join('');
+  const ch = tChanges(t), fh = tFinalHTML(t);
+  return '<div class="tblock"><div class="thd"><span class="tlabel">表'+(k+1)+'</span><b>'+esc(t.title)+'</b>'
+    + '<span class="legend"><i class="lg mod"></i>修正<i class="lg add"></i>追加<i class="lg del"></i>削除</span></div>'
+    + '<div class="tbtns"><button class="cp" type="button" data-html="'+esc(richTable(fh))+'" data-copy="'+esc(tFinalTSV(t))+'">修正後の表をコピー</button>'
+    + '<button class="cp" type="button" data-copy="'+esc(fh)+'">修正後のHTMLソースをコピー</button>'
+    + (ch.length ? '<button class="cp" type="button" data-copy="'+esc(ch.join('\n'))+'">変更点をテキストでコピー</button>' : '') + '</div>'
+    + '<div class="tscroll"><table class="tview">'+rows+'</table></div>'
+    + (ch.length ? '<ol class="tchanges">'+ch.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol>' : '')
+    + (t.note ? '<p class="memo" style="margin-top:10px">'+esc(t.note)+'</p>' : '') + '</div>';
+}
+function buildReportHTML(){
+  const fld = (lab, t, cls) => `<div class="fld ${cls||''}"><div class="lab"><span>${lab}</span>${t ? '<button class="cp" type="button">コピー</button>' : ''}</div><div class="txt">${t ? esc(t) : '<span class="none">—</span>'}</div></div>`;
+  let nav = '', body = '';
+  doc.sheets.forEach((s,si)=>{
+    const ents = s.entries.map((e,i)=>({e,i})).filter(x=>hasContent(x.e));
+    if (!ents.length) return;
+    nav += `<a href="#sh${si}">${esc(s.name)}</a>`;
+    body += `<section class="sheet" id="sh${si}"><h2>${esc(s.name)}</h2>`;
+    for (const {e,i} of ents){
+      const order = sortedNotes(e);
+      body += `<article class="entry"><div class="ehead"><span class="eno">P-${pad2(i+1)}</span>`
+        + (e.url ? `<a class="url" href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.url)}</a><button class="cp" type="button" data-copy="${esc(e.url)}">URLコピー</button>` : '<span class="url none">(URL未入力)</span>')
+        + (order.length || e.tables.some(t=>!t.pending) ? `<button class="cp all" type="button" data-copy="${esc(pageText(s,e,i))}">このページの指摘をコピー</button>` : '')
+        + `</div>`;
+      if (e.memo) body += `<p class="memo">${esc(e.memo)}</p>`;
+      if (e.image){
+        body += `<div class="stage"><div class="imgwrap"><img src="${e.image}" width="${e.w}" height="${e.h}" alt="">`;
+        order.forEach((n,k)=>{
+          body += n.kind==='rect'
+            ? `<div class="mark rect" style="left:${n.x*100}%;top:${n.y*100}%;width:${n.w*100}%;height:${n.h*100}%"><span class="mb">${k+1}</span></div>`
+            : `<div class="mark check" style="left:${n.x*100}%;top:${n.y*100}%">${CHECK_SVG}<span class="mb">${k+1}</span></div>`;
+        });
+        body += `</div><div class="notes">`;
+        order.forEach((n,k)=>{
+          const ax = n.kind==='rect' ? n.x+n.w : n.x, ay = anchorY(n), px = n.kind==='rect' ? 0 : 17;
+          body += `<div class="card" data-ax="${ax}" data-ay="${ay}" data-px="${px}"><div class="chead"><span class="cb">${k+1}</span><b>${esc(n.type)}</b></div>`
+            + (n.type==='文言修正' ? fld('現行', n.before) + fld('修正後 →', n.after, 'after') : fld('内容', n.text))
+            + (n.attach ? `<img class="att" src="${n.attach}" alt="添付画像">` : '')
+            + `</div>`;
+        });
+        body += `</div><svg class="leaders"></svg></div>`;
+      }
+      e.tables.filter(t=>!t.pending).forEach((t,k)=>{ body += reportTableHTML(t,k); });
+      body += `</article>`;
+    }
+    body += `</section>`;
+  });
+  const meta = [doc.author && '作成者: '+esc(doc.author), doc.date && '作成日: '+esc(doc.date)].filter(Boolean).join('　');
+  const SO = '<scr'+'ipt>', SC = '<\/scr'+'ipt>';
+  return `<!DOCTYPE html>\n<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(doc.title||'Web修正案')}</title><style>${REPORT_CSS}</style></head><body>`
+    + `<header><h1>${esc(doc.title||'Web修正案')}</h1><div class="meta">${meta}</div><div class="hbar"><button class="cp" type="button" data-copy="${esc(allText())}">全指摘をテキストでコピー</button><nav>${nav}</nav></div></header>`
+    + `<div class="wrap">${body}</div>${SO}(${reportRuntime.toString()})();${SC}</body></html>`;
+}
+async function exportReport(){
+  if (!doc.sheets.some(s=>s.entries.some(hasContent))) return toast('出力する内容がありません');
+  const blob = new Blob([buildReportHTML()],{type:'text/html'});
+  const name = `${fileBase()}_${(doc.date||today()).replace(/-/g,'')}_共有用.html`;
+  if (window.showSaveFilePicker){
+    try{
+      const fh = await window.showSaveFilePicker({suggestedName:name, types:[{description:'HTML',accept:{'text/html':['.html']}}]});
+      const w = await fh.createWritable(); await w.write(blob); await w.close();
+      toast('共有用HTMLを出力しました: '+fh.name, 3500); return;
+    }catch(err){ if (err && err.name==='AbortError') return; }
+  }
+  download(blob, name); toast('共有用HTMLをダウンロードフォルダに出力しました', 3500);
+}
+
+/* =====================================================================
+   操作手順モード (部内向けマニュアル) — Web修正とはデータ・仕様を分離
+   ===================================================================== */
+const BW = 1000; // board width in units
+const PCOLORS = {red:'#e0262d', blue:'#2563eb', yellow:'#f5b400', purple:'#7c3aed'};
+const PCNAME = {red:'赤', blue:'青', yellow:'黄', purple:'紫'};
+const SWS = {thin:3, mid:5, bold:8};
+const KNAME = {img:'画像', rect:'四角', ellipse:'丸', arrow:'矢印', star:'星', check:'チェック', text:'テキスト'};
+let pdoc, ptool='select', psel=null, pActive=null, pdirty=false, pFileHandle=null, lastNudge=0;
+const pstyle = {color:'red', sw:'mid'};
+const phist = {undo:[], redo:[]};
+function newStep(){ return {id:uid(), title:'', desc:'', h:520, objs:[]}; }
+function newPDoc(){ return {kind:'proc', docId:uid(), title:'', author:'', date:today(), steps:[newStep()], savedAt:0}; }
+function newObj(k,x,y,w,h){ return {id:uid(), k, x, y, w, h, color:pstyle.color, sw:pstyle.sw, fill:k==='star', card:k==='rect'||k==='ellipse', note:'', text:'', fs:26}; }
+function pnormalize(d){
+  const n = Object.assign(newPDoc(), d||{});
+  if (!Array.isArray(n.steps) || !n.steps.length) n.steps=[newStep()];
+  n.steps.forEach(s=>{ Object.assign(s, Object.assign(newStep(), s)); s.objs=(s.objs||[]).map(o=>Object.assign({id:uid(), color:'red', sw:'mid', fill:false, card:false, note:'', text:'', fs:26}, o)); });
+  return n;
+}
+pdoc = newPDoc();
+const findStep = id => pdoc.steps.find(s=>s.id===id);
+const objById = (s,id) => s && s.objs.find(o=>o.id===id);
+const pcol = o => PCOLORS[o.color] || PCOLORS.red;
+const psw = o => SWS[o.sw] || 5;
+const onColor = c => c==='yellow' ? '#1c1f23' : '#fff';
+const pserialize = () => ({kind:'proc', docId:pdoc.docId, title:pdoc.title, author:pdoc.author, date:pdoc.date, steps:pdoc.steps, savedAt:pdoc.savedAt});
+
+/* history / autosave */
+function psnap(){ return clone({title:pdoc.title, author:pdoc.author, date:pdoc.date, steps:pdoc.steps}); }
+function pPush(){ phist.undo.push(psnap()); if (phist.undo.length>80) phist.undo.shift(); phist.redo.length=0; pchanged(); }
+function prestore(s){ Object.assign(pdoc, s); psel=null; prender(); pchanged(); }
+function pUndo(){ if (!phist.undo.length) return toast('これ以上戻せません'); phist.redo.push(psnap()); prestore(phist.undo.pop()); }
+function pRedo(){ if (!phist.redo.length) return; phist.undo.push(psnap()); prestore(phist.redo.pop()); }
+function pchanged(){ pdirty=true; updateStatus(); pScheduleAutosave(); }
+let pasT;
+function pScheduleAutosave(){ clearTimeout(pasT); pasT=setTimeout(pAutosave, 800); }
+async function pAutosave(){
+  if (!idb) return;
+  try{
+    const t=Date.now();
+    await idbPut('pdoc:'+pdoc.docId, {savedAt:t, data:pserialize()});
+    await idbPut('plast', pdoc.docId);
+    let idx = (await idbGet('pindex')) || [];
+    idx = idx.filter(x=>x.id!==pdoc.docId); idx.unshift({id:pdoc.docId, t});
+    for (const old of idx.slice(12)) await idbDel('pdoc:'+old.id);
+    await idbPut('pindex', idx.slice(0,12));
+    lastAuto=t; idbOK=true;
+  }catch(err){ console.warn(err); idbOK=false; }
+  updateStatus();
+}
+
+/* geometry */
+const _mc = document.createElement('canvas').getContext('2d');
+function textM(o){
+  const fs=o.fs||26; _mc.font='700 '+fs+'px '+SANS;
+  const lines=String(o.text||'').split('\n');
+  const w=Math.max(fs, ...lines.map(l=>_mc.measureText(l).width));
+  const pad=o.fill ? Math.round(fs*0.45) : Math.round(fs*0.12), lh=fs*1.35;
+  return {w:w+pad*2, h:lines.length*lh+pad*2, lines, pad, lh, fs};
+}
+function pbox(o){
+  if (o.k==='arrow') return {x:Math.min(o.x,o.x+o.w), y:Math.min(o.y,o.y+o.h), w:Math.abs(o.w), h:Math.abs(o.h)};
+  if (o.k==='text'){ const m=textM(o); return {x:o.x, y:o.y, w:m.w, h:m.h}; }
+  return {x:o.x, y:o.y, w:o.w, h:o.h};
+}
+function panchor(o){ const b=pbox(o); return {x:b.x+b.w, y:b.y+b.h/2}; }
+function pCardOrder(s){ return s.objs.filter(o=>o.card).sort((a,b)=>(panchor(a).y-panchor(b).y)||(panchor(a).x-panchor(b).x)); }
+function pBottom(s){ return Math.max(0, ...s.objs.map(o=>{ const b=pbox(o); return b.y+b.h; })); }
+function pGrow(s){ const b=pBottom(s); if (b+16>s.h) s.h=Math.ceil(b+20); }
+const STAR_U = (()=>{ const p=[]; for (let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5, r=i%2?0.42:1; p.push([Math.cos(a)*r, Math.sin(a)*r]); }
+  const xs=p.map(q=>q[0]), ys=p.map(q=>q[1]), x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+  return p.map(([x,y])=>[(x-x0)/(x1-x0), (y-y0)/(y1-y0)]); })();
+const f1 = v => Math.round(v*10)/10;
+
+/* drawing: one function shared by editor, PNG and HTML export */
+function objSVG(o, num, opt){
+  const c=pcol(o), w=psw(o), b=pbox(o), hit=opt.hit;
+  const bboxHit = hit ? `<rect x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${f1(b.h)}" fill="transparent" pointer-events="all"/>` : '';
+  let s='';
+  switch (o.k){
+    case 'img':
+      s = `<image href="${opt.href(o)}" x="${f1(o.x)}" y="${f1(o.y)}" width="${f1(o.w)}" height="${f1(o.h)}" preserveAspectRatio="none"/><rect x="${f1(o.x)}" y="${f1(o.y)}" width="${f1(o.w)}" height="${f1(o.h)}" fill="none" stroke="#cbd5e1" stroke-width="1"/>`;
+      break;
+    case 'rect': {
+      const a = `x="${f1(o.x)}" y="${f1(o.y)}" width="${f1(o.w)}" height="${f1(o.h)}" rx="4"`;
+      if (hit) s += `<rect ${a} fill="none" stroke="transparent" stroke-width="${w+16}" pointer-events="stroke"/>`;
+      s += `<rect ${a} fill="${o.fill?c:'none'}" fill-opacity="0.2" stroke="${c}" stroke-width="${w}"/>`;
+      break; }
+    case 'ellipse': {
+      const a = `cx="${f1(o.x+o.w/2)}" cy="${f1(o.y+o.h/2)}" rx="${f1(o.w/2)}" ry="${f1(o.h/2)}"`;
+      if (hit) s += `<ellipse ${a} fill="none" stroke="transparent" stroke-width="${w+16}" pointer-events="stroke"/>`;
+      s += `<ellipse ${a} fill="${o.fill?c:'none'}" fill-opacity="0.2" stroke="${c}" stroke-width="${w}"/>`;
+      break; }
+    case 'star': {
+      const pts = STAR_U.map(([u,v])=>f1(b.x+u*b.w)+','+f1(b.y+v*b.h)).join(' ');
+      s = bboxHit + `<polygon points="${pts}" fill="${o.fill?c:'none'}" stroke="${o.fill?'#fff':c}" stroke-width="${o.fill?2:w}" stroke-linejoin="round"/>`;
+      break; }
+    case 'check': {
+      const P=[[0.1,0.55],[0.4,0.85],[0.92,0.15]].map(([u,v])=>f1(b.x+u*b.w)+' '+f1(b.y+v*b.h));
+      const d='M'+P.join(' L'), lw=w*1.6;
+      s = bboxHit + `<path d="${d}" fill="none" stroke="#fff" stroke-width="${lw+5}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${c}" stroke-width="${lw}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      break; }
+    case 'arrow': {
+      const x1=o.x, y1=o.y, x2=o.x+o.w, y2=o.y+o.h, len=Math.hypot(o.w,o.h)||1, ux=o.w/len, uy=o.h/len;
+      const L=Math.min(len, w*3.2+12), hw=w*2+6, bx=x2-ux*L, by=y2-uy*L;
+      const head = `${f1(x2)},${f1(y2)} ${f1(bx-uy*hw)},${f1(by+ux*hw)} ${f1(bx+uy*hw)},${f1(by-ux*hw)}`;
+      const ln = `x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(bx)}" y2="${f1(by)}"`;
+      if (hit) s += `<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" stroke="transparent" stroke-width="${w+18}" pointer-events="stroke"/>`;
+      s += `<line ${ln} stroke="#fff" stroke-opacity=".85" stroke-width="${w+4}" stroke-linecap="round"/><polygon points="${head}" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>`
+         + `<line ${ln} stroke="${c}" stroke-width="${w}" stroke-linecap="round"/><polygon points="${head}" fill="${c}"/>`;
+      break; }
+    case 'text': {
+      const m=textM(o);
+      s = bboxHit;
+      if (o.fill) s += `<rect x="${f1(o.x)}" y="${f1(o.y)}" width="${f1(m.w)}" height="${f1(m.h)}" rx="6" fill="${c}"/>`;
+      const fill = o.fill ? onColor(o.color) : c;
+      const halo = o.fill ? '' : ` stroke="#fff" stroke-width="${f1(m.fs*0.18)}" paint-order="stroke" stroke-linejoin="round"`;
+      m.lines.forEach((ln,i)=>{ s += `<text x="${f1(o.x+m.pad)}" y="${f1(o.y+m.pad+i*m.lh+m.fs*1.02)}" font-size="${m.fs}" font-weight="700" font-family='${SANS}' fill="${fill}"${halo}>${esc(ln)}</text>`; });
+      break; }
+  }
+  if (num){
+    s += `<circle cx="${f1(b.x)}" cy="${f1(b.y)}" r="14" fill="${c}" stroke="#fff" stroke-width="3"/><text x="${f1(b.x)}" y="${f1(b.y+5)}" text-anchor="middle" font-size="15" font-weight="700" font-family='${MONO}' fill="${onColor(o.color)}">${num}</text>`;
+  }
+  return s;
+}
+function pNums(s){ return new Map(pCardOrder(s).map((o,i)=>[o.id,i+1])); }
+function pLayerSVG(s, opt, imgs, nums){
+  return s.objs.filter(o=>(o.k==='img')===imgs).map(o=>`<g data-oid="${o.id}">${objSVG(o, nums.get(o.id), opt)}</g>`).join('');
+}
+function pBoardSVG(s, opt){
+  const nums = pNums(s);
+  return `<rect class="bg" x="0" y="0" width="${BW}" height="${s.h}" fill="#fff"/>`
+    + `<g class="lay-img">${pLayerSVG(s,opt,true,nums)}</g><g class="lay-shape">${pLayerSVG(s,opt,false,nums)}</g>`
+    + (opt.hit ? '<g class="lay-sel"></g>' : '');
+}
+const purlCache = new Map();
+function pImgURL(o){
+  const c=purlCache.get(o.id);
+  if (c && c.src===o.src) return c.url;
+  if (c) URL.revokeObjectURL(c.url);
+  let url; try{ url=URL.createObjectURL(dataURLtoBlob(o.src)); }catch{ url=o.src; }
+  purlCache.set(o.id, {src:o.src, url}); return url;
+}
+const EOPT = {hit:true, href:pImgURL};
+
+/* render */
+function prender(){
+  const sy=window.scrollY, d=$('#pdoc'); d.textContent='';
+  d.append(h('div',{class:'meta'},
+    h('input',{class:'m-title',placeholder:'手順書のタイトル(例:経費精算システム 申請手順)',value:pdoc.title,
+      oninput:ev=>{ pdoc.title=ev.target.value; document.title=pdoc.title||'操作手順エディタ'; pchanged(); }}),
+    h('label',{},'作成者',h('input',{value:pdoc.author,size:'12',oninput:ev=>{ pdoc.author=ev.target.value; pchanged(); }})),
+    h('label',{},'作成日',h('input',{type:'date',value:pdoc.date,oninput:ev=>{ pdoc.date=ev.target.value; pchanged(); }}))));
+  pdoc.steps.forEach((s,i)=>d.append(pRenderStep(s,i)));
+  d.append(h('button',{class:'add-entry',text:'+ ステップを追加',onclick:pAddStep}));
+  if (mode==='proc') pLayoutAll();
+  window.scrollTo(0, sy); pRenderBar(); updateStatus();
+}
+function pRenderStep(s,i){
+  const isEmpty = () => !(s.objs.length||s.title||s.desc);
+  const el = h('section',{class:'entry step'+(s.id===pActive?' act':'')+(isEmpty()?' empty':''),'data-sid':s.id});
+  el.addEventListener('pointerdown',()=>pSetActive(s.id),true);
+  el.append(h('div',{class:'ehead'},
+    h('span',{class:'eno',text:'STEP '+(i+1)}),
+    h('input',{class:'stitle',placeholder:'この手順のタイトル(例:ログイン画面を開く)',value:s.title,oninput:ev=>{ s.title=ev.target.value; el.classList.toggle('empty',isEmpty()); pchanged(); }}),
+    h('button',{class:'ebtn',text:'画像を追加',onclick:()=>pickFile(f=>pAddImage(f,{sid:s.id}))}),
+    h('button',{class:'ebtn',text:'画像コピー',title:'このステップをPNG画像でクリップボードへ',onclick:()=>pCopyStepPNG(s,i)}),
+    h('button',{class:'ebtn',text:'高さを合わせる',title:'ボードの高さを中身に合わせる',onclick:()=>pFitHeight(s)}),
+    h('button',{class:'ebtn',text:'↑',title:'上へ',disabled:i===0,onclick:()=>pMoveStep(i,-1)}),
+    h('button',{class:'ebtn',text:'↓',title:'下へ',disabled:i===pdoc.steps.length-1,onclick:()=>pMoveStep(i,1)}),
+    h('button',{class:'ebtn danger',text:'削除',onclick:()=>pDelStep(i)})));
+  const desc = h('textarea',{class:'memo'+(s.desc?'':' empty'),rows:'1',placeholder:'手順の説明(任意)',value:s.desc});
+  desc.addEventListener('input',()=>{ s.desc=desc.value; desc.classList.toggle('empty',!s.desc); el.classList.toggle('empty',isEmpty()); autoGrow(desc); pLayoutStep(el); pchanged(); });
+  el.append(desc);
+  const svg = document.createElementNS(SVGNS,'svg');
+  svg.setAttribute('class','board'); svg.setAttribute('viewBox',`0 0 ${BW} ${s.h}`);
+  svg.innerHTML = pBoardSVG(s, EOPT);
+  svg.addEventListener('pointerdown',ev=>pDown(ev,s,svg));
+  svg.addEventListener('dblclick',ev=>{
+    const g=ev.target.closest('[data-oid]'); const o=g && objById(s,g.dataset.oid); if (!o) return;
+    if (o.k==='text'){ const t=$('#pText'); if (t){ t.focus(); t.select(); } }
+    else if (o.card){ const ta=$(`.pcard[data-oid="${o.id}"] textarea`); if (ta) ta.focus(); }
+  });
+  const wrap = h('div',{class:'bwrap'}, svg);
+  if (!s.objs.length) wrap.append(h('div',{class:'bhint',html:'<b>Ctrl+V でスクショを貼り付け</b>(何枚でもOK)<br>画像はドラッグで移動、角をドラッグでサイズ変更'}));
+  const rz = h('div',{class:'bresize',title:'ドラッグでボードの高さを変更'});
+  rz.addEventListener('pointerdown',ev=>pResizeBoard(ev,s,svg,rz));
+  wrap.append(rz);
+  const notes = h('div',{class:'notes'});
+  const order = pCardOrder(s);
+  order.forEach((o,k)=>notes.append(pCardEl(s,o,k+1)));
+  if (!order.length) notes.append(h('div',{class:'hint',html:'四角・丸で囲むと、ここに説明カードが出ます。<br>矢印・星などは上のバーの「説明カード」で付けられます。'}));
+  const lead = document.createElementNS(SVGNS,'svg'); lead.setAttribute('class','leaders');
+  const stage = h('div',{class:'stage'+(s.objs.length?'':' noobj')}, wrap, notes, lead);
+  stage.addEventListener('dragover',ev=>{ if ([...ev.dataTransfer.types].includes('Files')){ ev.preventDefault(); ev.stopPropagation(); stage.classList.add('dragover'); } });
+  stage.addEventListener('dragleave',ev=>{ if (!stage.contains(ev.relatedTarget)) stage.classList.remove('dragover'); });
+  stage.addEventListener('drop',ev=>{
+    stage.classList.remove('dragover');
+    const f=[...ev.dataTransfer.files].find(f=>f.type.startsWith('image/')); if (!f) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const r=svg.getBoundingClientRect(), k=BW/r.width;
+    pAddImage(f, {sid:s.id, x:(ev.clientX-r.left)*k, y:Math.max(0,(ev.clientY-r.top)*k)});
+  });
+  el.append(stage);
+  return el;
+}
+function pCardEl(s,o,num){
+  const c = pcol(o);
+  const card = h('div',{class:'card pcard','data-oid':o.id,style:`border-color:${c}`},
+    h('div',{class:'chead'},
+      h('span',{class:'cbadge',text:num,style:`background:${c};color:${onColor(o.color)}`}),
+      h('span',{class:'ckind',text:KNAME[o.k]}),
+      h('button',{class:'cdel',title:'説明カードを外す(図形は残ります)',text:'×',onclick:()=>{ pPush(); o.card=false; prender(); }})));
+  const ta = h('textarea',{rows:'1',placeholder:'説明を入力(例:ここをクリック)',value:o.note});
+  ta.addEventListener('input',()=>{ o.note=ta.value; autoGrow(ta); pLayoutStep(ta.closest('.step')); pchanged(); });
+  card.append(ta);
+  card.addEventListener('focusin',()=>pSelect(s.id,o.id));
+  card.addEventListener('pointerdown',()=>pSelect(s.id,o.id));
+  return card;
+}
+function pLayoutAll(){ $$('#pdoc .step').forEach(pLayoutStep); }
+function pLayoutStep(el){
+  if (!el) return;
+  const s = findStep(el.dataset.sid); if (!s) return;
+  el.querySelectorAll('textarea').forEach(autoGrow);
+  const stage = el.querySelector('.stage'); const sr = stage.getBoundingClientRect(); if (!sr.width) return;
+  const bw = stage.querySelector('.bwrap');
+  if (document.body.classList.contains('printing')){ const fit=Math.min(sr.width-356, 520*BW/s.h); bw.style.flex=`0 0 ${Math.max(200,fit)}px`; }
+  else bw.style.flex='';
+  const svg = stage.querySelector('svg.board'), notes = stage.querySelector('.notes'), lead = stage.querySelector('svg.leaders');
+  const wr = svg.getBoundingClientRect(), nr = notes.getBoundingClientRect(), k = wr.width/BW;
+  const ox=wr.left-sr.left, oy=wr.top-sr.top, nx=nr.left-sr.left, ny=nr.top-sr.top;
+  let prev=-Infinity; const pts=[];
+  for (const o of pCardOrder(s)){
+    const card = notes.querySelector(`.pcard[data-oid="${o.id}"]`); if (!card) continue;
+    const a = panchor(o), ax=ox+a.x*k, ay=oy+a.y*k;
+    const top = Math.max(ay-ny-CARD_HEAD, prev+10, 0);
+    card.style.top = top+'px'; prev = top+card.offsetHeight;
+    pts.push({ax, ay, cy:ny+top+CARD_HEAD, c:pcol(o), id:o.id});
+  }
+  notes.style.height = Math.max(wr.height, prev)+'px';
+  const sw=stage.offsetWidth, sh=stage.offsetHeight;
+  lead.setAttribute('width',sw); lead.setAttribute('height',sh); lead.setAttribute('viewBox',`0 0 ${sw} ${sh}`);
+  lead.textContent='';
+  for (const p of pts){
+    const path=document.createElementNS(SVGNS,'path'); path.setAttribute('d',`M${p.ax} ${p.ay} H${nx-18} L${nx} ${p.cy}`); path.style.stroke=p.c;
+    const dot=document.createElementNS(SVGNS,'circle'); dot.setAttribute('cx',p.ax); dot.setAttribute('cy',p.ay); dot.setAttribute('r',3.5); dot.style.fill=p.c;
+    lead.append(path, dot);
+  }
+  notes.querySelectorAll('.pcard').forEach(c=>c.classList.toggle('sel', !!psel && psel.oid===c.dataset.oid));
+  pDrawSel(svg, s);
+}
+function pDrawSel(svg, s){
+  const g = svg.querySelector('.lay-sel'); if (!g) return;
+  const o = psel && psel.sid===s.id && objById(s, psel.oid);
+  if (!o){ g.innerHTML=''; return; }
+  const k = BW/(svg.getBoundingClientRect().width||BW), hs=12*k, sw2=2*k;
+  const hd = (x,y,n,cur) => `<rect data-h="${n}" x="${f1(x-hs/2)}" y="${f1(y-hs/2)}" width="${f1(hs)}" height="${f1(hs)}" fill="#fff" stroke="#ffb000" stroke-width="${f1(sw2)}" style="cursor:${cur}"/>`;
+  if (o.k==='arrow'){ g.innerHTML = hd(o.x,o.y,'p1','move') + hd(o.x+o.w,o.y+o.h,'p2','move'); return; }
+  const b=pbox(o), m=5*k;
+  let out = `<rect x="${f1(b.x-m)}" y="${f1(b.y-m)}" width="${f1(b.w+2*m)}" height="${f1(b.h+2*m)}" fill="none" stroke="#ffb000" stroke-width="${f1(sw2)}" stroke-dasharray="${f1(6*k)} ${f1(4*k)}" pointer-events="none"/>`;
+  if (o.k!=='text') out += hd(b.x,b.y,'nw','nwse-resize') + hd(b.x+b.w,b.y,'ne','nesw-resize') + hd(b.x,b.y+b.h,'sw','nesw-resize') + hd(b.x+b.w,b.y+b.h,'se','nwse-resize');
+  g.innerHTML = out;
+}
+function pRefresh(svg, s, withImgs){
+  const nums = pNums(s);
+  if (withImgs) svg.querySelector('.lay-img').innerHTML = pLayerSVG(s,EOPT,true,nums);
+  svg.querySelector('.lay-shape').innerHTML = pLayerSVG(s,EOPT,false,nums);
+  svg.setAttribute('viewBox',`0 0 ${BW} ${s.h}`); svg.querySelector('.bg').setAttribute('height', s.h);
+  pLayoutStep(svg.closest('.step'));
+}
+function pUpdImg(svg, o){
+  const g = svg.querySelector(`.lay-img [data-oid="${o.id}"]`); if (!g) return;
+  g.querySelectorAll('image,rect').forEach(el=>{ el.setAttribute('x',f1(o.x)); el.setAttribute('y',f1(o.y)); el.setAttribute('width',f1(o.w)); el.setAttribute('height',f1(o.h)); });
+}
+const stepSVG = sid => $(`#pdoc .step[data-sid="${sid}"] svg.board`);
+
+/* selection / tools / properties */
+function pSetActive(id){ if (pActive===id) return; pActive=id; $$('#pdoc .step').forEach(x=>x.classList.toggle('act', x.dataset.sid===id)); }
+function pSelect(sid, oid){
+  psel = oid ? {sid, oid} : null;
+  $$('#pdoc .step').forEach(el=>{ const svg=el.querySelector('svg.board'), s=findStep(el.dataset.sid); if (svg && s) pDrawSel(svg,s); });
+  $$('.pcard').forEach(c=>c.classList.toggle('sel', !!psel && psel.oid===c.dataset.oid));
+  pRenderBar();
+}
+function pSetTool(t){ if (t!=='select' && psel) pSelect(null); ptool=t; document.body.dataset.ptool=t; $$('#ptools .btn').forEach(b=>b.classList.toggle('on', b.dataset.ptool===t)); }
+function pCurObj(){ const s=psel && findStep(psel.sid); return {s, o:objById(s, psel && psel.oid)}; }
+function pSet(o, patch){ pPush(); Object.assign(o, patch); prender(); }
+function pSetColor(key){ pstyle.color=key; const {o}=pCurObj(); if (o && o.k!=='img') return pSet(o,{color:key}); pRenderBar(); }
+function pSetWidth(key){ pstyle.sw=key; const {o}=pCurObj(); if (o && o.k!=='img' && o.k!=='text') return pSet(o,{sw:key}); pRenderBar(); }
+function pZ(dir){ const {s,o}=pCurObj(); if (!o) return; pPush(); s.objs.splice(s.objs.indexOf(o),1); if (dir>0) s.objs.push(o); else s.objs.unshift(o); prender(); }
+function pDelObj(){ const {s,o}=pCurObj(); if (!o) return; pPush(); s.objs.splice(s.objs.indexOf(o),1); psel=null; prender(); }
+function pDup(){ const {s,o}=pCurObj(); if (!o) return; pPush(); const c=Object.assign(clone(o),{id:uid(), x:o.x+20, y:o.y+20}); s.objs.push(c); psel={sid:s.id, oid:c.id}; pGrow(s); prender(); }
+function pRenderBar(){
+  const bar = $('#pprops'); if (!bar) return;
+  bar.textContent='';
+  const {s,o} = pCurObj();
+  const color = o && o.k!=='img' ? o.color : pstyle.color, swk = o && o.sw ? o.sw : pstyle.sw;
+  bar.append(h('span',{class:'plab',text: o ? '選択中:'+KNAME[o.k] : '新しい図形:'}));
+  if (!o || o.k!=='img'){
+    const cg = h('div',{class:'grp'});
+    Object.entries(PCOLORS).forEach(([key,hex],i)=>cg.append(h('button',{class:'sw'+(color===key?' on':''),title:PCNAME[key]+'(キー '+(i+1)+')',style:`--c:${hex}`,onclick:()=>pSetColor(key)}, h('i'), PCNAME[key])));
+    bar.append(cg);
+  }
+  if (!o || !['img','text'].includes(o.k)){
+    const wg = h('div',{class:'grp'});
+    [['thin','細'],['mid','中'],['bold','太']].forEach(([key,lab])=>wg.append(h('button',{class:'btn'+(swk===key?' on':''),text:lab,title:'線の太さ',onclick:()=>pSetWidth(key)})));
+    bar.append(h('div',{class:'sep'}), wg);
+  }
+  if (o){
+    bar.append(h('div',{class:'sep'}));
+    if (['rect','ellipse','star','text'].includes(o.k)) bar.append(h('button',{class:'btn'+(o.fill?' on':''),text:o.k==='text'?'背景色':'塗り',onclick:()=>pSet(o,{fill:!o.fill})}));
+    bar.append(h('button',{class:'btn'+(o.card?' on':''),text:'説明カード',title:'右側に番号付きの説明カードを付ける',onclick:()=>{ pSet(o,{card:!o.card}); if (o.card) setTimeout(()=>{ const ta=$(`.pcard[data-oid="${o.id}"] textarea`); if (ta) ta.focus(); }); }}));
+    if (o.k==='text'){
+      const fsSel = h('select',{class:'pfs',title:'文字サイズ'}, [[18,'小'],[26,'中'],[36,'大'],[50,'特大']].map(([v,l])=>h('option',{value:v,text:'文字 '+l})));
+      fsSel.value = String(o.fs); fsSel.addEventListener('change',()=>pSet(o,{fs:+fsSel.value}));
+      const ta = h('textarea',{id:'pText',rows:'1',placeholder:'表示する文字',value:o.text});
+      let pushed=false;
+      ta.addEventListener('focus',()=>{ if (!pushed){ pPush(); pushed=true; } });
+      ta.addEventListener('input',()=>{ o.text=ta.value; const tw=textM(o).w; if (o.x+tw>BW) o.x=Math.max(0,BW-tw); const svg=stepSVG(s.id); if (svg) pRefresh(svg,s,false); pchanged(); });
+      bar.append(fsSel, ta);
+    }
+    bar.append(h('div',{class:'sep'}),
+      h('button',{class:'btn',text:'最前面',onclick:()=>pZ(1)}),
+      h('button',{class:'btn',text:'最背面',onclick:()=>pZ(-1)}),
+      h('button',{class:'btn',text:'複製',title:'Ctrl+D',onclick:pDup}),
+      h('button',{class:'btn danger',text:'削除',title:'Delete',onclick:pDelObj}));
+  } else {
+    bar.append(h('span',{class:'phint',text:'Ctrl+V で画像を貼り付け  ·  図形ツールを選んで画像の上をドラッグ  ·  色は 1〜4 キー'}));
+  }
+}
+
+/* pointer interaction on the board */
+function pResizeObj(o, g0, hd, p, keep){
+  if (o.k==='arrow'){
+    if (hd==='p1'){ const x2=g0.x+g0.w, y2=g0.y+g0.h; o.x=p.x; o.y=p.y; o.w=x2-p.x; o.h=y2-p.y; }
+    else { o.w=p.x-g0.x; o.h=p.y-g0.y; }
+    return;
+  }
+  const fx = hd.includes('w') ? g0.x+g0.w : g0.x, fy = hd.includes('n') ? g0.y+g0.h : g0.y;
+  let w=Math.max(8,Math.abs(p.x-fx)), hh=Math.max(8,Math.abs(p.y-fy));
+  if (keep){ const ar=g0.h/g0.w; if (w*ar>hh) hh=w*ar; else w=hh/ar; }
+  o.w=w; o.h=hh; o.x = hd.includes('w') ? fx-w : fx; o.y = hd.includes('n') ? fy-hh : fy;
+}
+function pDown(ev, s, svg){
+  if (ev.button!==0) return;
+  ev.preventDefault();
+  if (document.activeElement && document.activeElement!==document.body) document.activeElement.blur();
+  pSetActive(s.id);
+  const r = svg.getBoundingClientRect(), k = BW/r.width;
+  const P = q => ({x:clamp((q.clientX-r.left)*k, 0, BW), y:Math.max(0,(q.clientY-r.top)*k)});
+  const p0 = P(ev);
+  const hd = ev.target.closest('[data-h]'), g = ev.target.closest('[data-oid]');
+  const cur = psel && psel.sid===s.id ? objById(s, psel.oid) : null;
+  let st;
+  if (hd && cur) st = {mode:'resize', o:cur, h:hd.dataset.h, orig:{...cur}};
+  else if (ptool==='select'){
+    if (!g){ pSelect(null); return; }
+    const o = objById(s, g.dataset.oid); pSelect(s.id, o.id); st = {mode:'move', o, orig:{...o}};
+  }
+  else if (ptool==='text'){
+    pPush(); const o=newObj('text',p0.x,p0.y,0,0); o.text='テキスト'; o.x=Math.min(o.x, BW-textM(o).w); s.objs.push(o); psel={sid:s.id, oid:o.id}; pGrow(s); prender();
+    setTimeout(()=>{ const t=$('#pText'); if (t){ t.focus(); t.select(); } });
+    return;
+  }
+  else st = {mode:'create', o:newObj(ptool,p0.x,p0.y,0,0)};
+  svg.setPointerCapture(ev.pointerId);
+  let moved = false;
+  const onMove = q => {
+    const p=P(q), dx=p.x-p0.x, dy=p.y-p0.y;
+    if (!moved && Math.hypot(dx,dy)/k<3) return;
+    if (!moved){ moved=true; pPush(); if (st.mode==='create'){ s.objs.push(st.o); psel={sid:s.id, oid:st.o.id}; } }
+    const o=st.o, g0=st.orig;
+    if (st.mode==='create'){
+      if (o.k==='arrow'){ o.w=dx; o.h=dy; }
+      else {
+        o.x=Math.min(p0.x,p.x); o.y=Math.min(p0.y,p.y); o.w=Math.abs(dx); o.h=Math.abs(dy);
+        if (q.shiftKey || o.k==='star' || o.k==='check'){ const m=Math.max(o.w,o.h); o.w=o.h=m; if (p.x<p0.x) o.x=p0.x-m; if (p.y<p0.y) o.y=p0.y-m; }
+      }
+    } else if (st.mode==='move'){ o.x=g0.x+dx; o.y=g0.y+dy; }
+    else pResizeObj(o, g0, st.h, p, o.k==='img' ? !q.shiftKey : q.shiftKey);
+    if (o.k==='img') pUpdImg(svg,o);
+    pRefresh(svg, s, false);
+  };
+  const onUp = () => {
+    svg.removeEventListener('pointermove',onMove); svg.removeEventListener('pointerup',onUp); svg.removeEventListener('pointercancel',onUp);
+    if (st.mode==='create'){
+      if (!moved){
+        if (st.o.k!=='star' && st.o.k!=='check') return;
+        const d = st.o.k==='star' ? 64 : 56;
+        pPush(); Object.assign(st.o,{x:p0.x-d/2, y:Math.max(0,p0.y-d/2), w:d, h:d}); s.objs.push(st.o);
+      } else { const b=pbox(st.o); if (b.w<6 && b.h<6){ s.objs.splice(s.objs.indexOf(st.o),1); phist.undo.pop(); psel=null; prender(); return; } }
+      psel = {sid:s.id, oid:st.o.id};
+    }
+    if (moved || st.mode==='create'){
+      pGrow(s); prender();
+      if (st.mode==='create' && st.o.card) setTimeout(()=>{ const ta=$(`.pcard[data-oid="${st.o.id}"] textarea`); if (ta) ta.focus(); });
+    }
+  };
+  svg.addEventListener('pointermove',onMove); svg.addEventListener('pointerup',onUp); svg.addEventListener('pointercancel',onUp);
+}
+function pResizeBoard(ev, s, svg, rz){
+  if (ev.button!==0) return;
+  ev.preventDefault(); ev.stopPropagation();
+  const y0=ev.clientY, h0=s.h, k=BW/svg.getBoundingClientRect().width; let moved=false;
+  rz.setPointerCapture(ev.pointerId);
+  const mv = q => { if (!moved){ moved=true; pPush(); } s.h=Math.round(Math.max(120, h0+(q.clientY-y0)*k)); pRefresh(svg,s,false); };
+  const up = () => { rz.removeEventListener('pointermove',mv); rz.removeEventListener('pointerup',up); rz.removeEventListener('pointercancel',up); };
+  rz.addEventListener('pointermove',mv); rz.addEventListener('pointerup',up); rz.addEventListener('pointercancel',up);
+}
+
+/* step / image operations */
+async function pAddImage(file, at){
+  let im; try{ im=await readImage(file); }catch{ return toast('画像を読み込めませんでした'); }
+  const s = (at && findStep(at.sid)) || findStep(pActive) || pdoc.steps[pdoc.steps.length-1];
+  pPush();
+  let w=im.w, hh=im.h; const maxW=BW-40;
+  if (w>maxW){ hh=hh*maxW/w; w=maxW; }
+  w=Math.round(w); hh=Math.round(hh);
+  let x, y;
+  if (at && at.x!=null){ x=clamp(at.x-w/2,0,BW-w); y=Math.max(0,Math.round(at.y-hh/2)); }
+  else { const imgs=s.objs.filter(o=>o.k==='img'); x=20; y=imgs.length ? Math.round(Math.max(...imgs.map(o=>o.y+o.h))+24) : 20; }
+  const o = {id:uid(), k:'img', x, y, w, h:hh, src:im.src, iw:im.w, ih:im.h, color:'red', sw:'mid', fill:false, card:false, note:'', text:'', fs:26};
+  const wasEmpty = !s.objs.length;
+  s.objs.push(o);
+  if (wasEmpty) s.h = Math.max(160, y+hh+20); else pGrow(s);
+  psel = {sid:s.id, oid:o.id}; pActive = s.id;
+  if (ptool!=='select') pSetTool('select');
+  prender();
+  toast('画像を追加しました — ドラッグで移動、角でサイズ変更できます');
+}
+function pAddStep(){ pPush(); const s=newStep(); pdoc.steps.push(s); pActive=s.id; psel=null; prender(); const el=$(`#pdoc .step[data-sid="${s.id}"]`); if (el) el.scrollIntoView({block:'start',behavior:'smooth'}); }
+function pMoveStep(i,d){ const j=i+d; if (j<0||j>=pdoc.steps.length) return; pPush(); [pdoc.steps[i],pdoc.steps[j]]=[pdoc.steps[j],pdoc.steps[i]]; prender(); }
+function pDelStep(i){
+  const s=pdoc.steps[i];
+  if ((s.objs.length||s.title||s.desc) && !confirm(`STEP ${i+1} を削除しますか?`)) return;
+  pPush(); pdoc.steps.splice(i,1); if (!pdoc.steps.length) pdoc.steps.push(newStep()); psel=null; prender();
+}
+function pCropped(s){ return s.objs.length ? Object.assign({}, s, {h:Math.min(s.h, Math.max(120, Math.ceil(pBottom(s)+20)))}) : s; }
+function pFitHeight(s){ pPush(); s.h=Math.max(160, Math.ceil(pBottom(s)+20)); prender(); }
+
+/* events (dispatched from the global handlers when mode==='proc') */
+function pPaste(ev){
+  const item=[...ev.clipboardData.items].find(it=>it.kind==='file' && it.type.startsWith('image/'));
+  if (!item) return;
+  const f=item.getAsFile(); if (!f) return;
+  ev.preventDefault();
+  const ae=document.activeElement, st=ae && ae.closest && ae.closest('.step'); if (st) pActive=st.dataset.sid;
+  pAddImage(f);
+}
+function pKey(ev){
+  const typing=isTyping(ev.target), mod=ev.ctrlKey||ev.metaKey, k=ev.key.toLowerCase();
+  if (mod && k==='s'){ ev.preventDefault(); pSave(ev.shiftKey); return; }
+  if (ev.key==='Escape'){ $$('.modal.show').forEach(m=>m.classList.remove('show')); if (typing) ev.target.blur(); else { pSelect(null); pSetTool('select'); } return; }
+  if (typing) return;
+  if (mod && k==='z'){ ev.preventDefault(); ev.shiftKey ? pRedo() : pUndo(); return; }
+  if (mod && k==='y'){ ev.preventDefault(); pRedo(); return; }
+  if (mod && k==='d'){ ev.preventDefault(); pDup(); return; }
+  if (mod || ev.altKey) return;
+  const map={v:'select', r:'rect', o:'ellipse', a:'arrow', s:'star', c:'check', t:'text'};
+  if (map[k]) return pSetTool(map[k]);
+  if (['1','2','3','4'].includes(ev.key)) return pSetColor(Object.keys(PCOLORS)[+ev.key-1]);
+  if ((ev.key==='Delete'||ev.key==='Backspace') && psel){ ev.preventDefault(); return pDelObj(); }
+  if (psel && ev.key.startsWith('Arrow')){
+    ev.preventDefault();
+    const {s,o}=pCurObj(); if (!o) return;
+    if (Date.now()-lastNudge>800) pPush(); lastNudge=Date.now();
+    const d=ev.shiftKey?10:1;
+    if (ev.key==='ArrowLeft') o.x-=d; if (ev.key==='ArrowRight') o.x+=d; if (ev.key==='ArrowUp') o.y-=d; if (ev.key==='ArrowDown') o.y+=d;
+    const svg=stepSVG(s.id); if (svg){ if (o.k==='img') pUpdImg(svg,o); pRefresh(svg,s,false); }
+    pchanged();
+  }
+}
+
+/* save / new */
+function pFileBase(){ return (pdoc.title||'操作手順').replace(/[\\/:*?"<>|\r\n]/g,'_').trim(); }
+async function pSave(asNew){
+  pdoc.savedAt = Date.now();
+  const blob = new Blob([buildHTML({app:'webfix', mode:'proc', data:pserialize()})],{type:'text/html'});
+  const name = `${pFileBase()}_${(pdoc.date||today()).replace(/-/g,'')}.html`;
+  if (window.showSaveFilePicker){
+    try{
+      if (!pFileHandle || asNew) pFileHandle = await window.showSaveFilePicker({suggestedName:name, types:[{description:'HTML',accept:{'text/html':['.html']}}]});
+      const w = await pFileHandle.createWritable(); await w.write(blob); await w.close();
+      pdirty=false; updateStatus(); toast('保存しました: '+pFileHandle.name); return;
+    }catch(err){ if (err && err.name==='AbortError') return; pFileHandle=null; }
+  }
+  download(blob, name); pdirty=false; updateStatus(); toast('ダウンロードフォルダに保存しました: '+name, 4000);
+}
+function pNew(){
+  if (pdirty && !confirm('未保存の変更があります。新規作成しますか?\n(現在の内容はブラウザ内の自動保存には残ります)')) return;
+  pdoc=newPDoc(); pFileHandle=null; phist.undo.length=0; phist.redo.length=0; psel=null; pActive=pdoc.steps[0].id;
+  document.title='操作手順エディタ'; prender(); pdirty=false; updateStatus(); window.scrollTo(0,0);
+}
+
+/* PNG export */
+function pWrap(text, font, maxW){ _mc.font=font; return wrapText(_mc, text, maxW); }
+function pStepSVG(s0, i){
+  const s = pCropped(s0);
+  const P=28, cards=pCardOrder(s), CW=cards.length?340:0, GAP=cards.length?56:0, W=P+BW+GAP+CW+P;
+  const F = (sz,wt) => `font-size="${sz}" font-weight="${wt||400}" font-family='${SANS}'`;
+  let y=P, out='';
+  const lab='STEP '+(i+1); _mc.font='700 15px '+MONO; const lw=Math.ceil(_mc.measureText(lab).width)+20;
+  out += `<rect x="${P}" y="${y}" width="${lw}" height="28" rx="3" fill="#0f766e"/><text x="${P+10}" y="${y+19}" font-size="15" font-weight="700" font-family='${MONO}' fill="#fff">${lab}</text>`;
+  if (s.title) out += `<text x="${P+lw+12}" y="${y+21}" ${F(20,700)} fill="#1c1f23">${esc(s.title)}</text>`;
+  y += 44;
+  if (s.desc){ pWrap(s.desc,'15px '+SANS,W-2*P).forEach(l=>{ out+=`<text x="${P}" y="${y+16}" ${F(15)} fill="#374151">${esc(l)}</text>`; y+=24; }); y+=10; }
+  const by=y;
+  out += `<g transform="translate(${P},${by})">${pBoardSVG(s,{hit:false, href:o=>o.src})}<rect x="0" y="0" width="${BW}" height="${s.h}" fill="none" stroke="#d1d5db"/></g>`;
+  const nx=P+BW+GAP; let prev=-Infinity; const cs=[];
+  cards.forEach((o,k)=>{
+    const lines = o.note ? pWrap(o.note,'14px '+SANS,CW-24) : ['—'];
+    const hh = 46+lines.length*21+6, a=panchor(o), ax=P+a.x, ay=by+a.y;
+    const top = Math.max(ay-23, prev+12, by); prev=top+hh;
+    cs.push({o,k,lines,hh,ax,ay,top});
+  });
+  cs.forEach(c=>{ const col=pcol(c.o); out+=`<path d="M${f1(c.ax)} ${f1(c.ay)} H${nx-18} L${nx} ${f1(c.top+23)}" fill="none" stroke="${col}" stroke-width="2"/><circle cx="${f1(c.ax)}" cy="${f1(c.ay)}" r="3.5" fill="${col}"/>`; });
+  cs.forEach(c=>{
+    const col=pcol(c.o);
+    out += `<rect x="${nx}" y="${f1(c.top)}" width="${CW}" height="${c.hh}" rx="6" fill="#fff" stroke="${col}" stroke-width="1.5"/><circle cx="${nx+22}" cy="${f1(c.top+23)}" r="11" fill="${col}"/><text x="${nx+22}" y="${f1(c.top+28)}" text-anchor="middle" font-size="12" font-weight="700" font-family='${MONO}' fill="${onColor(c.o.color)}">${c.k+1}</text>`;
+    c.lines.forEach((l,j)=>{ out += `<text x="${nx+12}" y="${f1(c.top+58+j*21)}" ${F(14)} fill="${c.o.note?'#1c1f23':'#9ca3af'}">${esc(l)}</text>`; });
+  });
+  return {W, H:Math.max(by+s.h, prev)+P, body:out};
+}
+function pScaleFor(steps, W, H){
+  let sc=1;
+  steps.forEach(s=>s.objs.forEach(o=>{ if (o.k==='img' && o.w>0) sc=Math.max(sc, o.iw/o.w); }));
+  sc=Math.min(sc,2);
+  sc=Math.min(sc, 30000/H, 16000/W, Math.sqrt(2.4e8/(W*H)));
+  return Math.max(0.3, sc);
+}
+async function pRaster(body, W, H, sc){
+  const str = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(W*sc)}" height="${Math.round(H*sc)}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#fff"/>${body}</svg>`;
+  const url = URL.createObjectURL(new Blob([str],{type:'image/svg+xml'}));
+  try{
+    const im = await loadImg(url);
+    const cv = document.createElement('canvas'); cv.width=Math.round(W*sc); cv.height=Math.round(H*sc);
+    const g = cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(im,0,0,cv.width,cv.height);
+    return await new Promise(r=>cv.toBlob(r,'image/png'));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function pCopyStepPNG(s, i){
+  try{
+    const p = pStepSVG(s,i);
+    const blob = await pRaster(p.body, p.W, p.H, pScaleFor([s], p.W, p.H));
+    try{ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); toast('STEP '+(i+1)+' を画像でコピーしました — Ctrl+V で貼り付けできます', 3500); }
+    catch{ download(blob, `${pFileBase()}_STEP${pad2(i+1)}.png`); toast('PNGとして保存しました', 3000); }
+  }catch(err){ console.error(err); toast('画像の書き出しに失敗しました'); }
+}
+async function pExportAllPNG(){
+  const steps = pdoc.steps.filter(s=>s.objs.length||s.title||s.desc);
+  if (!steps.length) return toast('出力する内容がありません');
+  try{
+    const parts = pdoc.steps.map((s,i)=>({s,i,...pStepSVG(s,i)})).filter(p=>p.s.objs.length||p.s.title||p.s.desc);
+    const W = Math.max(...parts.map(p=>p.W));
+    let body = `<text x="28" y="50" font-size="28" font-weight="700" font-family='${SANS}' fill="#1c1f23">${esc(pdoc.title||'操作手順')}</text>`;
+    const meta=[pdoc.author&&'作成者: '+pdoc.author, pdoc.date&&'作成日: '+pdoc.date].filter(Boolean).join('   ');
+    if (meta) body += `<text x="28" y="78" font-size="13" font-family='${MONO}' fill="#6b7280">${esc(meta)}</text>`;
+    body += `<line x1="28" x2="${W-28}" y1="96" y2="96" stroke="#1c1f23" stroke-width="2"/>`;
+    let y = 100;
+    parts.forEach((p,k)=>{ body += `<g transform="translate(0,${y})">${p.body}</g>`; y += p.H; if (k<parts.length-1) body += `<line x1="28" x2="${W-28}" y1="${y}" y2="${y}" stroke="#e5e7eb" stroke-width="2"/>`; });
+    const blob = await pRaster(body, W, y, pScaleFor(steps, W, y));
+    download(blob, `${pFileBase()}_${(pdoc.date||today()).replace(/-/g,'')}.png`);
+    toast('全ステップを1枚のPNGで出力しました', 3000);
+  }catch(err){ console.error(err); toast('PNGの出力に失敗しました'); }
+}
+
+/* HTML export (for the department) */
+function procText(){
+  const out=[pdoc.title||'操作手順'];
+  pdoc.steps.forEach((s,i)=>{
+    if (!(s.objs.length||s.title||s.desc)) return;
+    out.push('', 'STEP '+(i+1)+(s.title?': '+s.title:''));
+    if (s.desc) out.push(s.desc);
+    pCardOrder(s).forEach((o,k)=>{ if (o.note) out.push('  ('+(k+1)+') '+indent(o.note)); });
+  });
+  return out.join('\n');
+}
+function buildProcHTML(){
+  let nav='', body='';
+  pdoc.steps.forEach((s0,i)=>{
+    const s = pCropped(s0);
+    if (!(s.objs.length||s.title||s.desc)) return;
+    nav += `<a href="#st${i+1}">${i+1}. ${esc(s.title||'STEP '+(i+1))}</a>`;
+    const cards = pCardOrder(s);
+    body += `<article class="entry" id="st${i+1}"><div class="ehead"><span class="eno" style="background:#0f766e">STEP ${i+1}</span><b class="stt">${esc(s.title)}</b></div>`;
+    if (s.desc) body += `<p class="memo">${esc(s.desc)}</p>`;
+    if (s.objs.length){
+      body += `<div class="stage"><div class="imgwrap board"><svg viewBox="0 0 ${BW} ${s.h}" style="display:block;width:100%;height:auto">${pBoardSVG(s,{hit:false, href:o=>o.src})}</svg></div><div class="notes${cards.length?'':' empty'}">`;
+      cards.forEach((o,k)=>{
+        const a=panchor(o), c=pcol(o);
+        body += `<div class="card" data-ax="${a.x/BW}" data-ay="${a.y/s.h}" data-px="0" data-color="${c}" style="border-color:${c}"><div class="chead"><span class="cb" style="background:${c};color:${onColor(o.color)}">${k+1}</span>`
+          + (o.note ? `<button class="cp" type="button" data-copy="${esc(o.note)}" style="margin-left:auto">コピー</button>` : '')
+          + `</div><div class="fld"><div class="txt">${o.note ? esc(o.note) : '<span class="none">—</span>'}</div></div></div>`;
+      });
+      body += `</div><svg class="leaders"></svg></div>`;
+    }
+    body += `</article>`;
+  });
+  const meta = [pdoc.author && '作成者: '+esc(pdoc.author), pdoc.date && '作成日: '+esc(pdoc.date)].filter(Boolean).join('　');
+  const SO = '<scr'+'ipt>', SC = '<\/scr'+'ipt>';
+  return `<!DOCTYPE html>\n<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(pdoc.title||'操作手順')}</title><style>${REPORT_CSS}\n.notes.empty{display:none}.imgwrap.board{flex:1 1 auto}.stt{font-size:16px}nav{display:flex;flex-wrap:wrap;gap:4px 0}</style></head><body>`
+    + `<header><h1>${esc(pdoc.title||'操作手順')}</h1><div class="meta">${meta}</div><div class="hbar"><button class="cp" type="button" data-copy="${esc(procText())}">全文をテキストでコピー</button><nav>${nav}</nav></div></header>`
+    + `<div class="wrap">${body}</div>${SO}(${reportRuntime.toString()})();${SC}</body></html>`;
+}
+async function pExportHTML(){
+  if (!pdoc.steps.some(s=>s.objs.length||s.title||s.desc)) return toast('出力する内容がありません');
+  const blob = new Blob([buildProcHTML()],{type:'text/html'});
+  const name = `${pFileBase()}_${(pdoc.date||today()).replace(/-/g,'')}_閲覧用.html`;
+  if (window.showSaveFilePicker){
+    try{
+      const fh = await window.showSaveFilePicker({suggestedName:name, types:[{description:'HTML',accept:{'text/html':['.html']}}]});
+      const w = await fh.createWritable(); await w.write(blob); await w.close();
+      toast('閲覧用HTMLを出力しました: '+fh.name, 3500); return;
+    }catch(err){ if (err && err.name==='AbortError') return; }
+  }
+  download(blob, name); toast('閲覧用HTMLをダウンロードフォルダに出力しました', 3500);
+}
+
+/* mode switch */
+function setMode(m){
+  mode = m==='proc' ? 'proc' : 'web';
+  document.body.dataset.mode = mode;
+  $$('#modeSw button').forEach(b=>b.classList.toggle('on', b.dataset.mode===mode));
+  $('#bReport').textContent = mode==='proc' ? 'HTML出力' : '共有用HTML';
+  $('.brand small').textContent = mode==='proc' ? '操作手順エディタ' : '修正案エディタ';
+  document.title = mode==='proc' ? (pdoc.title||'操作手順エディタ') : (doc.title||'Web修正案エディタ');
+  if (mode==='proc') prender(); else render();
+  window.scrollTo(0,0);
+  updateStatus();
+  if (idb) idbPut('mode', mode).catch(()=>{});
+}
+
+/* ---------- global events ---------- */
+document.addEventListener('paste', ev=>{
+  const cd = ev.clipboardData; if (!cd) return;
+  if (mode==='proc') return pPaste(ev);
+  const item = [...cd.items].find(it=>it.kind==='file' && it.type.startsWith('image/'));
+  const ae = document.activeElement;
+  const html = cd.getData('text/html')||'', raw = cd.getData('text/plain')||'';
+  const tz = ae && ae.closest && ae.closest('.tpaste');
+  if (tz || (!isTyping(ae) && (/<table[\s>]/i.test(html) || raw.includes('\t')))){
+    const parsed = parseTable(html, raw, !!tz);
+    if (parsed){ ev.preventDefault(); return addTableFromPaste(parsed, tz); }
+    if (tz && !item){ ev.preventDefault(); return toast('表として読み取れませんでした'); }
+  }
+  if (item){
+    const file = item.getAsFile(); if (!file) return;
+    ev.preventDefault();
+    const card = ae && ae.closest && ae.closest('.card');
+    if (card){ const fe=findEntry(card.closest('.entry').dataset.eid); const n=fe&&noteById(fe.e, card.dataset.nid); if (n) return attachToNote(n,file); }
+    const en = ae && ae.closest && ae.closest('.entry'); if (en) setActiveEntry(en.dataset.eid);
+    return placeImage(file);
+  }
+  const text = (cd.getData('text/plain')||'').trim();
+  if (!isTyping(ae) && /^https?:\/\/\S+$/i.test(text)){
+    ev.preventDefault();
+    const s=sheetOf(doc.active); let fe = activeEntry && findEntry(activeEntry);
+    if (!fe || fe.s!==s) fe = {s, e:s.entries[s.entries.length-1]};
+    pushHist();
+    if (!fe.e.url) fe.e.url=text; else { const ne=newEntry(); ne.url=text; s.entries.splice(s.entries.indexOf(fe.e)+1,0,ne); activeEntry=ne.id; }
+    render(); toast('URLを入れました');
+  }
+});
+document.addEventListener('keydown', ev=>{
+  if (mode==='proc') return pKey(ev);
+  const typing = isTyping(ev.target), mod = ev.ctrlKey||ev.metaKey, k = ev.key.toLowerCase();
+  if (mod && k==='s'){ ev.preventDefault(); saveFile(ev.shiftKey); return; }
+  if (ev.key==='Escape'){ $$('.modal.show').forEach(m=>m.classList.remove('show')); if (!typing) select(null); else ev.target.blur(); return; }
+  if (typing) return;
+  if (mod && k==='z'){ ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
+  if (mod && k==='y'){ ev.preventDefault(); redo(); return; }
+  if (mod || ev.altKey) return;
+  if (k==='v') setTool('select'); else if (k==='r') setTool('rect'); else if (k==='c') setTool('check');
+  else if ((ev.key==='Delete'||ev.key==='Backspace') && selected){ ev.preventDefault(); const fe=findEntry(selected.eid); if (fe) delNote(fe.e, selected.nid); }
+});
+document.addEventListener('dragover', ev=>{ if ([...ev.dataTransfer.types].includes('Files')) ev.preventDefault(); });
+document.addEventListener('drop', ev=>{ const f=[...ev.dataTransfer.files].find(f=>f.type.startsWith('image/')); ev.preventDefault(); if (f) (mode==='proc' ? pAddImage(f) : placeImage(f)); });
+let rzF; window.addEventListener('resize', ()=>{ cancelAnimationFrame(rzF); rzF=requestAnimationFrame(()=>{ layoutAll(); pLayoutAll(); }); });
+window.addEventListener('beforeprint', ()=>{ document.body.classList.add('printing'); layoutAll(); pLayoutAll(); });
+window.addEventListener('afterprint', ()=>{ document.body.classList.remove('printing'); layoutAll(); pLayoutAll(); });
+
+$$('#tools .btn').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
+$$('#ptools .btn').forEach(b=>b.addEventListener('click',()=>pSetTool(b.dataset.ptool)));
+$$('#modeSw button').forEach(b=>b.addEventListener('click',()=>{ if (mode!==b.dataset.mode) setMode(b.dataset.mode); }));
+$('#bUndo').onclick=()=>mode==='proc'?pUndo():undo(); $('#bRedo').onclick=()=>mode==='proc'?pRedo():redo();
+$('#bSave').onclick=()=>mode==='proc'?pSave(false):saveFile(false); $('#bSaveAs').onclick=()=>mode==='proc'?pSave(true):saveFile(true);
+$('#bPng').onclick=pExportAllPNG;
+$('#bPrint').onclick=()=>window.print();
+$('#bReport').onclick=()=>mode==='proc'?pExportHTML():exportReport();
+$('#bNew').onclick=()=>mode==='proc'?pNew():newDocument();
+$('#bHelp').onclick=()=>$('#help').classList.add('show');
+$$('.modal').forEach(m=>m.addEventListener('click',ev=>{ if (ev.target===m || ev.target.hasAttribute('data-close') || m.id==='viewer') m.classList.remove('show'); }));
+
+/* ---------- boot ---------- */
+(async function boot(){
+  let emb=null;
+  try{ const t=$('#embedded-data').textContent.trim(); if (t) emb=JSON.parse(t); }catch(err){ console.warn(err); }
+  try{ idb = await idbOpen(); }catch{ idb=null; idbOK=false; }
+  let embMode=null, embData=null;
+  if (emb){ if (emb.app==='webfix'){ embMode = emb.mode==='proc' ? 'proc' : 'web'; embData = emb.data; } else { embMode='web'; embData=emb; } }
+  let rw=false, rp=false;
+  // Web修正
+  if (embMode==='web'){
+    doc = normalize(embData);
+    if (idb){ try{ const a=await idbGet('doc:'+doc.docId); if (a && a.savedAt > (embData.savedAt||0)+2000 && confirm('このファイルより新しい自動保存データがあります。そちらを開きますか?')){ doc=normalize(a.data); rw=true; } }catch{} }
+  } else if (idb){
+    try{ const last=await idbGet('last'); const a=last && await idbGet('doc:'+last);
+      if (a && a.data && a.data.sheets && a.data.sheets.some(s=>s.entries.some(e=>e.image||e.url||(e.tables&&e.tables.length)))){ doc=normalize(a.data); rw=true; } }catch{}
+  }
+  // 操作手順
+  if (embMode==='proc'){
+    pdoc = pnormalize(embData);
+    if (idb){ try{ const a=await idbGet('pdoc:'+pdoc.docId); if (a && a.savedAt > (embData.savedAt||0)+2000 && confirm('このファイルより新しい自動保存データがあります。そちらを開きますか?')){ pdoc=pnormalize(a.data); rp=true; } }catch{} }
+  } else if (idb){
+    try{ const last=await idbGet('plast'); const a=last && await idbGet('pdoc:'+last);
+      if (a && a.data && a.data.steps && a.data.steps.some(s=>s.objs.length||s.title||s.desc)){ pdoc=pnormalize(a.data); rp=true; } }catch{}
+  }
+  let m = embMode;
+  if (!m && idb){ try{ m = await idbGet('mode'); }catch{} }
+  const s=sheetOf(doc.active); activeEntry = s.entries[s.entries.length-1].id;
+  pActive = pdoc.steps[pdoc.steps.length-1].id;
+  setTool('rect'); pSetTool('select');
+  dirty = rw && embMode!=='web'; pdirty = rp && embMode!=='proc';
+  setMode(m==='proc' ? 'proc' : 'web');
+  if ((mode==='web' && rw && embMode!=='web') || (mode==='proc' && rp && embMode!=='proc')) toast('前回の作業を復元しました');
+})();
+</script>
+</body>
+</html>
